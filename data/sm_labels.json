@@ -1,0 +1,524 @@
+{
+  "schema_version": 1,
+  "description": "Standard Model encoded as a layered PyTorch nn.Module. Weights live in sm.safetensors; this file annotates each tensor's axes with the physical meaning of every row/column.",
+  "layer_categorization": {
+    "gauge.*": "architecture: Lie algebra structure constants and fundamental generators",
+    "reps.*": "architecture: higher irreducible representations (computed from gauge)",
+    "fields.*": "architecture: particle content and quantum-number table",
+    "vertices.*": "architecture: signed vertex-particle incidence matrix",
+    "params.*": "trainable: 19 free SM parameters (+7 BSM for neutrino sector)"
+  },
+  "axis_labels": {
+    "fields.particle_vectors": {
+      "rows": [
+        "particle",
+        [
+          "H",
+          "W+",
+          "W-",
+          "Z",
+          "b_b",
+          "b_g",
+          "b_r",
+          "c_b",
+          "c_g",
+          "c_r",
+          "d_b",
+          "d_g",
+          "d_r",
+          "e+",
+          "e-",
+          "g_bgbar",
+          "g_brbar",
+          "g_diag3",
+          "g_diag8",
+          "g_gbbar",
+          "g_grbar",
+          "g_rbbar",
+          "g_rgbar",
+          "mu+",
+          "mu-",
+          "nu_e",
+          "nu_mu",
+          "nu_tau",
+          "photon",
+          "s_b",
+          "s_g",
+          "s_r",
+          "t_b",
+          "t_g",
+          "t_r",
+          "tau+",
+          "tau-",
+          "u_b",
+          "u_g",
+          "u_r",
+          "~b_b",
+          "~b_g",
+          "~b_r",
+          "~c_b",
+          "~c_g",
+          "~c_r",
+          "~d_b",
+          "~d_g",
+          "~d_r",
+          "~nu_e",
+          "~nu_mu",
+          "~nu_tau",
+          "~s_b",
+          "~s_g",
+          "~s_r",
+          "~t_b",
+          "~t_g",
+          "~t_r",
+          "~u_b",
+          "~u_g",
+          "~u_r"
+        ]
+      ],
+      "columns": [
+        "coord",
+        [
+          "Q",
+          "B",
+          "L_e",
+          "L_mu",
+          "L_tau",
+          "C3",
+          "C8",
+          "spin",
+          "mass_GeV"
+        ]
+      ],
+      "notes": "Cols 0..6 are conserved charges; cols 7..8 are spin and mass."
+    },
+    "fields.field_table": {
+      "rows": [
+        "field",
+        [
+          "Q_L",
+          "u_R",
+          "d_R",
+          "L_L",
+          "e_R",
+          "H",
+          "G",
+          "W",
+          "B"
+        ]
+      ],
+      "columns": [
+        "attribute",
+        [
+          "n_color",
+          "n_weak",
+          "Y",
+          "n_gen",
+          "chirality_enc",
+          "lorentz_enc"
+        ]
+      ]
+    },
+    "vertices.incidence": {
+      "rows": [
+        "vertex",
+        [
+          "QED  e- gamma",
+          "QED  e+ gamma",
+          "QED  mu- gamma",
+          "QED  mu+ gamma",
+          "QED  tau- gamma",
+          "QED  tau+ gamma",
+          "QED  u_r gamma",
+          "QED  ~u_r gamma",
+          "QED  u_g gamma",
+          "QED  ~u_g gamma",
+          "QED  u_b gamma",
+          "QED  ~u_b gamma",
+          "QED  d_r gamma",
+          "QED  ~d_r gamma",
+          "QED  d_g gamma",
+          "QED  ~d_g gamma",
+          "QED  d_b gamma",
+          "QED  ~d_b gamma",
+          "QED  c_r gamma",
+          "QED  ~c_r gamma",
+          "QED  c_g gamma",
+          "QED  ~c_g gamma",
+          "QED  c_b gamma",
+          "QED  ~c_b gamma",
+          "QED  s_r gamma",
+          "QED  ~s_r gamma",
+          "QED  s_g gamma",
+          "QED  ~s_g gamma",
+          "QED  s_b gamma",
+          "QED  ~s_b gamma",
+          "QED  t_r gamma",
+          "QED  ~t_r gamma",
+          "QED  t_g gamma",
+          "QED  ~t_g gamma",
+          "QED  t_b gamma",
+          "QED  ~t_b gamma",
+          "QED  b_r gamma",
+          "QED  ~b_r gamma",
+          "QED  b_g gamma",
+          "QED  ~b_g gamma",
+          "QED  b_b gamma",
+          "QED  ~b_b gamma",
+          "QCD  u_r -> u_g g_rgbar",
+          "QCD  u_g -> u_b g_gbbar",
+          "QCD  u_r -> u_b g_rbbar",
+          "QCD  u_g -> u_r g_grbar",
+          "QCD  u_b -> u_g g_bgbar",
+          "QCD  u_b -> u_r g_brbar",
+          "QCD  d_r -> d_g g_rgbar",
+          "QCD  d_g -> d_b g_gbbar",
+          "QCD  d_r -> d_b g_rbbar",
+          "QCD  d_g -> d_r g_grbar",
+          "QCD  d_b -> d_g g_bgbar",
+          "QCD  d_b -> d_r g_brbar",
+          "QCD  c_r -> c_g g_rgbar",
+          "QCD  c_g -> c_b g_gbbar",
+          "QCD  c_r -> c_b g_rbbar",
+          "QCD  c_g -> c_r g_grbar",
+          "QCD  c_b -> c_g g_bgbar",
+          "QCD  c_b -> c_r g_brbar",
+          "QCD  s_r -> s_g g_rgbar",
+          "QCD  s_g -> s_b g_gbbar",
+          "QCD  s_r -> s_b g_rbbar",
+          "QCD  s_g -> s_r g_grbar",
+          "QCD  s_b -> s_g g_bgbar",
+          "QCD  s_b -> s_r g_brbar",
+          "QCD  t_r -> t_g g_rgbar",
+          "QCD  t_g -> t_b g_gbbar",
+          "QCD  t_r -> t_b g_rbbar",
+          "QCD  t_g -> t_r g_grbar",
+          "QCD  t_b -> t_g g_bgbar",
+          "QCD  t_b -> t_r g_brbar",
+          "QCD  b_r -> b_g g_rgbar",
+          "QCD  b_g -> b_b g_gbbar",
+          "QCD  b_r -> b_b g_rbbar",
+          "QCD  b_g -> b_r g_grbar",
+          "QCD  b_b -> b_g g_bgbar",
+          "QCD  b_b -> b_r g_brbar",
+          "QCD  3g  g_rgbar g_gbbar g_brbar",
+          "QCD  3g  g_grbar g_rbbar g_bgbar",
+          "NC   Z -> e- e+",
+          "NC   Z -> mu- mu+",
+          "NC   Z -> tau- tau+",
+          "NC   Z -> nu_e ~nu_e",
+          "NC   Z -> nu_mu ~nu_mu",
+          "NC   Z -> nu_tau ~nu_tau",
+          "NC   Z -> u_r ~u_r",
+          "NC   Z -> u_g ~u_g",
+          "NC   Z -> u_b ~u_b",
+          "NC   Z -> d_r ~d_r",
+          "NC   Z -> d_g ~d_g",
+          "NC   Z -> d_b ~d_b",
+          "NC   Z -> c_r ~c_r",
+          "NC   Z -> c_g ~c_g",
+          "NC   Z -> c_b ~c_b",
+          "NC   Z -> s_r ~s_r",
+          "NC   Z -> s_g ~s_g",
+          "NC   Z -> s_b ~s_b",
+          "NC   Z -> t_r ~t_r",
+          "NC   Z -> t_g ~t_g",
+          "NC   Z -> t_b ~t_b",
+          "NC   Z -> b_r ~b_r",
+          "NC   Z -> b_g ~b_g",
+          "NC   Z -> b_b ~b_b",
+          "Yuk  H -> e- e+",
+          "Yuk  H -> mu- mu+",
+          "Yuk  H -> tau- tau+",
+          "Yuk  H -> u_r ~u_r",
+          "Yuk  H -> u_g ~u_g",
+          "Yuk  H -> u_b ~u_b",
+          "Yuk  H -> d_r ~d_r",
+          "Yuk  H -> d_g ~d_g",
+          "Yuk  H -> d_b ~d_b",
+          "Yuk  H -> c_r ~c_r",
+          "Yuk  H -> c_g ~c_g",
+          "Yuk  H -> c_b ~c_b",
+          "Yuk  H -> s_r ~s_r",
+          "Yuk  H -> s_g ~s_g",
+          "Yuk  H -> s_b ~s_b",
+          "Yuk  H -> t_r ~t_r",
+          "Yuk  H -> t_g ~t_g",
+          "Yuk  H -> t_b ~t_b",
+          "Yuk  H -> b_r ~b_r",
+          "Yuk  H -> b_g ~b_g",
+          "Yuk  H -> b_b ~b_b",
+          "CC   W+ -> e+ nu_e",
+          "CC   W- -> e- ~nu_e",
+          "CC   W+ -> mu+ nu_mu",
+          "CC   W- -> mu- ~nu_mu",
+          "CC   W+ -> tau+ nu_tau",
+          "CC   W- -> tau- ~nu_tau",
+          "CC   W+ -> u_r ~d_r",
+          "CC   W+ -> u_g ~d_g",
+          "CC   W+ -> u_b ~d_b",
+          "CC   W+ -> u_r ~s_r",
+          "CC   W+ -> u_g ~s_g",
+          "CC   W+ -> u_b ~s_b",
+          "CC   W+ -> u_r ~b_r",
+          "CC   W+ -> u_g ~b_g",
+          "CC   W+ -> u_b ~b_b",
+          "CC   W+ -> c_r ~d_r",
+          "CC   W+ -> c_g ~d_g",
+          "CC   W+ -> c_b ~d_b",
+          "CC   W+ -> c_r ~s_r",
+          "CC   W+ -> c_g ~s_g",
+          "CC   W+ -> c_b ~s_b",
+          "CC   W+ -> c_r ~b_r",
+          "CC   W+ -> c_g ~b_g",
+          "CC   W+ -> c_b ~b_b",
+          "CC   W+ -> t_r ~d_r",
+          "CC   W+ -> t_g ~d_g",
+          "CC   W+ -> t_b ~d_b",
+          "CC   W+ -> t_r ~s_r",
+          "CC   W+ -> t_g ~s_g",
+          "CC   W+ -> t_b ~s_b",
+          "CC   W+ -> t_r ~b_r",
+          "CC   W+ -> t_g ~b_g",
+          "CC   W+ -> t_b ~b_b",
+          "TGV   Z -> W+ W-",
+          "TGV   gamma -> W+ W-",
+          "QGV   W+ W- -> Z Z",
+          "QGV   W+ W- -> gamma gamma",
+          "QGV   W+ W- -> Z gamma",
+          "HSC   H -> H H (off-shell)",
+          "HSC   H H -> H H",
+          "HVV   H -> Z Z",
+          "HVV   H -> W+ W-",
+          "HVV   H H -> Z Z"
+        ]
+      ],
+      "columns": [
+        "particle",
+        [
+          "H",
+          "W+",
+          "W-",
+          "Z",
+          "b_b",
+          "b_g",
+          "b_r",
+          "c_b",
+          "c_g",
+          "c_r",
+          "d_b",
+          "d_g",
+          "d_r",
+          "e+",
+          "e-",
+          "g_bgbar",
+          "g_brbar",
+          "g_gbbar",
+          "g_grbar",
+          "g_rbbar",
+          "g_rgbar",
+          "mu+",
+          "mu-",
+          "nu_e",
+          "nu_mu",
+          "nu_tau",
+          "photon",
+          "s_b",
+          "s_g",
+          "s_r",
+          "t_b",
+          "t_g",
+          "t_r",
+          "tau+",
+          "tau-",
+          "u_b",
+          "u_g",
+          "u_r",
+          "~b_b",
+          "~b_g",
+          "~b_r",
+          "~c_b",
+          "~c_g",
+          "~c_r",
+          "~d_b",
+          "~d_g",
+          "~d_r",
+          "~nu_e",
+          "~nu_mu",
+          "~nu_tau",
+          "~s_b",
+          "~s_g",
+          "~s_r",
+          "~t_b",
+          "~t_g",
+          "~t_r",
+          "~u_b",
+          "~u_g",
+          "~u_r"
+        ]
+      ],
+      "notes": "B[v,p] = +1 incoming, -1 outgoing.  null(B) = conservation algebra."
+    },
+    "params.gauge_couplings": {
+      "rows": [
+        "coupling",
+        [
+          "g_s",
+          "g",
+          "g_prime"
+        ]
+      ]
+    },
+    "params.higgs": {
+      "rows": [
+        "higgs_param",
+        [
+          "v",
+          "lambda"
+        ]
+      ]
+    },
+    "params.yukawa_up_eigvals": {
+      "rows": [
+        "up_flavor",
+        [
+          "u",
+          "c",
+          "t"
+        ]
+      ]
+    },
+    "params.yukawa_down_eigvals": {
+      "rows": [
+        "down_flavor",
+        [
+          "d",
+          "s",
+          "b"
+        ]
+      ]
+    },
+    "params.yukawa_lep_eigvals": {
+      "rows": [
+        "lepton_flavor",
+        [
+          "e",
+          "mu",
+          "tau"
+        ]
+      ]
+    },
+    "params.ckm_wolfenstein": {
+      "rows": [
+        "ckm_wolfenstein",
+        [
+          "lambda",
+          "A",
+          "rho_bar",
+          "eta_bar"
+        ]
+      ]
+    },
+    "params.pmns_angles": {
+      "rows": [
+        "pmns_param",
+        [
+          "theta_12",
+          "theta_23",
+          "theta_13",
+          "delta_CP"
+        ]
+      ]
+    },
+    "params.neutrino_dm2": {
+      "rows": [
+        "nu_split",
+        [
+          "dm2_21",
+          "dm2_31",
+          "dm2_32"
+        ]
+      ]
+    },
+    "params.theta_qcd": {
+      "rows": [
+        "scalar",
+        [
+          "theta_qcd"
+        ]
+      ]
+    }
+  },
+  "rep_index": [
+    {
+      "group": "SU(2)",
+      "tensor_key": "reps.su2_j0",
+      "label": "spin j=0"
+    },
+    {
+      "group": "SU(2)",
+      "tensor_key": "reps.su2_j0_5",
+      "label": "spin j=0.5"
+    },
+    {
+      "group": "SU(2)",
+      "tensor_key": "reps.su2_j1",
+      "label": "spin j=1"
+    },
+    {
+      "group": "SU(2)",
+      "tensor_key": "reps.su2_j1_5",
+      "label": "spin j=1.5"
+    },
+    {
+      "group": "SU(2)",
+      "tensor_key": "reps.su2_j2",
+      "label": "spin j=2"
+    },
+    {
+      "group": "SU(3)",
+      "tensor_key": "reps.su3_1",
+      "label": "1 (singlet)"
+    },
+    {
+      "group": "SU(3)",
+      "tensor_key": "reps.su3_3",
+      "label": "3 (fund)"
+    },
+    {
+      "group": "SU(3)",
+      "tensor_key": "reps.su3_3bar",
+      "label": "3bar"
+    },
+    {
+      "group": "SU(3)",
+      "tensor_key": "reps.su3_6",
+      "label": "6 (sym^2 fund, (p,0)=2,0)"
+    },
+    {
+      "group": "SU(3)",
+      "tensor_key": "reps.su3_10",
+      "label": "10 (sym^3 fund, (p,0)=3,0)"
+    },
+    {
+      "group": "SU(3)",
+      "tensor_key": "reps.su3_8",
+      "label": "8 (adjoint via f)"
+    }
+  ],
+  "parameter_count": {
+    "minimal_sm": 19,
+    "with_dirac_neutrinos": 26,
+    "breakdown": {
+      "gauge_couplings": 3,
+      "higgs": 2,
+      "yukawa_up": 3,
+      "yukawa_down": 3,
+      "yukawa_lep": 3,
+      "ckm": 4,
+      "theta_qcd": 1,
+      "pmns": 4,
+      "neutrino_dm2": 3
+    }
+  }
+}

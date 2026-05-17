@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sm-sae"
+version = "0.1.0"
+description = "The Standard Model as a tensor bundle, used as ground-truth substrate for SAE polysemanticity research."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Allan Scott" }]
+keywords = ["sparse-autoencoder", "interpretability", "standard-model", "polysemanticity", "polygram"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+  "numpy>=1.24,<2",
+  "torch>=2.0",
+  "safetensors>=0.4",
+  "packaging>=20",
+]
+
+[project.optional-dependencies]
+polygram = [
+  # Install from GitHub directly; not yet published on PyPI.
+  "polygram @ git+https://github.com/jascal/polygram.git",
+]
+dev = [
+  "pytest>=7",
+  "pytest-cov>=4",
+]
+# Intel macOS (x86_64) caveat -- last torch wheel is 2.2.2, requires Python 3.10/3.11 + numpy<2
+intel = [
+  "torch==2.2.2",
+  "numpy<2",
+]
+
+[project.scripts]
+sm-sae-build-data     = "scripts.build_data:main"
+sm-sae-train-all      = "scripts.train_all:main"
+sm-sae-evaluate       = "smsae.sae.evaluation:main"
+sm-sae-polygram-demo  = "smsae.polygram_bridge:main"
+
+[project.urls]
+Homepage = "https://github.com/jascal/sm-sae"
+Issues   = "https://github.com/jascal/sm-sae/issues"
+
+[tool.setuptools]
+packages = ["smsae", "smsae.sm", "smsae.sae"]
+
+[tool.setuptools.package-data]
+smsae = ["py.typed"]

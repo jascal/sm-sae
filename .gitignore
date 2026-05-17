@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+ENV/
+
+# Editor / IDE
+.vscode/
+.idea/
+.DS_Store
+.claude/
+
+# Project artifacts (generated)
+runs/
+*.pt
+*.ckpt
+
+# Generated SM data — checked in for now so the repo is usable without
+# running scripts/build_data.py first.  Comment these in to track only
+# the build script:
+# data/*.npz
+# data/*.safetensors
+# data/*.json
+
+# Q-Orca artifacts emitted by polygram (large + reproducible)
+*.q.orca.md
+
+# OS junk
+Thumbs.db
