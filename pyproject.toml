@@ -33,6 +33,18 @@ polygram = [
   # Install from GitHub directly; not yet published on PyPI.
   "polygram @ git+https://github.com/jascal/polygram.git",
 ]
+viz = [
+  "matplotlib>=3.7",
+]
+# Optional: sae-forge integration for scripts/forge_pipeline.py.
+# Apple Silicon / Linux: pip install -e ".[forge]"
+# Intel Mac (x86_64): pip install -e ".[forge-intel]"  (pins transformers<4.50)
+forge = [
+  "sae-forge[torch] @ git+https://github.com/jascal/sae-forge.git",
+]
+forge-intel = [
+  "sae-forge[intel] @ git+https://github.com/jascal/sae-forge.git",
+]
 dev = [
   "pytest>=7",
   "pytest-cov>=4",
@@ -48,6 +60,9 @@ sm-sae-build-data     = "scripts.build_data:main"
 sm-sae-train-all      = "scripts.train_all:main"
 sm-sae-evaluate       = "smsae.sae.evaluation:main"
 sm-sae-polygram-demo  = "smsae.polygram_bridge:main"
+sm-sae-polygram-sweep = "scripts.polygram_sweep:main"
+sm-sae-forge          = "scripts.forge_pipeline:main"
+sm-sae-visualize      = "scripts.visualize:main"
 
 [project.urls]
 Homepage = "https://github.com/jascal/sm-sae"
