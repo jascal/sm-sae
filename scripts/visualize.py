@@ -14,8 +14,13 @@ Inputs read (any missing piece is reported in-place, not fatal):
   runs/polygram/interference_e_pair.csv      (built by scripts/polygram_demo.py)
   runs/polygram/cancellation_e_e/*.md
 
-Output: a self-contained HTML file (default runs/visualize.html); all plots
-are inlined as base64 PNGs, so the result is one shareable artifact.
+Output: a self-contained HTML file written to docs/index.html by default;
+all plots are inlined as base64 PNGs, so the result is one shareable
+artifact. The accompanying result JSONs (the same files the scoreboard
+reads at build time) are copied alongside so docs/ holds a complete
+self-contained snapshot. docs/ is configured as the GitHub Pages source
+for the repo, so the latest committed scoreboard is published at
+https://jascal.github.io/sm-sae/ on every push to main.
 
     python scripts/visualize.py [--out path] [--fast]
 
@@ -1021,8 +1026,12 @@ def section_sae(fast: bool) -> str:
                   else missing("runs/{feed}__{variant}.pt",
                                "run scripts/train_all.py to populate"))
 
-    # Summary table
+    # Summary table — falls back to docs/ snapshot when runs/ is empty.
+    # _result_path() lives in section_benchmark's module scope; inline
+    # the equivalent here to avoid a forward reference at import time.
     summary_path = os.path.join(REPO_ROOT, "runs", "alignment_summary.json")
+    if not os.path.exists(summary_path):
+        summary_path = os.path.join(REPO_ROOT, "docs", "alignment_summary.json")
     if os.path.exists(summary_path):
         with open(summary_path) as f:
             summary = json.load(f)
@@ -1681,11 +1690,18 @@ def _format_forge_pipeline_results() -> str:
     are real and their outputs are reflected here.
     """
     import glob
-    forge_dir = os.path.join(REPO_ROOT, "runs", "sae_forge")
-    paths = sorted(glob.glob(os.path.join(forge_dir, "*", "forge_results.json")))
+    # Primary source: the working runs/ directory (where forge_pipeline.py
+    # writes). Fallback: the committed docs/ snapshot, so the scoreboard
+    # can be re-rendered from a fresh clone without re-running the
+    # pipeline.
+    runs_forge = os.path.join(REPO_ROOT, "runs", "sae_forge")
+    docs_forge = os.path.join(REPO_ROOT, "docs", "sae_forge")
+    paths = sorted(glob.glob(os.path.join(runs_forge, "*", "forge_results.json")))
+    if not paths:
+        paths = sorted(glob.glob(os.path.join(docs_forge, "*", "forge_results.json")))
     if not paths:
         return ("<h3>Forge pipeline runs</h3>"
-                + missing(os.path.join(forge_dir, "*", "forge_results.json"),
+                + missing(os.path.join(runs_forge, "*", "forge_results.json"),
                           "run scripts/forge_pipeline.py &lt;run_id&gt;"))
 
     rows = ['<thead><tr><th>run</th><th>encoding</th><th>selection</th>'
@@ -1898,13 +1914,22 @@ def _sae_forge_section() -> str:
 """
 
 
+def _result_path(rel: str) -> str:
+    """Return runs/<rel> if it exists, else docs/<rel> (the committed
+    snapshot fallback so the scoreboard re-renders from a fresh clone)."""
+    runs_path = os.path.join(REPO_ROOT, "runs", rel)
+    if os.path.exists(runs_path):
+        return runs_path
+    return os.path.join(REPO_ROOT, "docs", rel)
+
+
 def section_benchmark() -> str:
     """Honest, three-axis scoreboard. sm-sae is a fixture, not a product —
     its job is to make compression/extraction techniques comparable."""
     runs_dir = os.path.join(REPO_ROOT, "runs")
 
     # ---- Axis A: reconstruction quality (runs/summary.json) -------------
-    sa_path = os.path.join(runs_dir, "summary.json")
+    sa_path = _result_path("summary.json")
     if os.path.exists(sa_path):
         with open(sa_path) as f:
             sa = json.load(f)
@@ -1922,7 +1947,7 @@ def section_benchmark() -> str:
         axis_a = missing(sa_path, "run scripts/train_all.py")
 
     # ---- Axis B: ground-truth alignment (runs/alignment_summary.json) ----
-    sb_path = os.path.join(runs_dir, "alignment_summary.json")
+    sb_path = _result_path("alignment_summary.json")
     if os.path.exists(sb_path):
         with open(sb_path) as f:
             sb = json.load(f)
@@ -2595,9 +2620,17 @@ nav a { margin-right: 1rem; }
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--out", default=os.path.join(REPO_ROOT, "runs", "visualize.html"))
+    ap.add_argument("--out", default=os.path.join(REPO_ROOT, "docs", "index.html"),
+                    help="path for the generated scoreboard HTML "
+                         "(default docs/index.html, served by GitHub Pages).")
     ap.add_argument("--fast", action="store_true",
                     help="use a smaller cascade feed for quicker rendering")
+    ap.add_argument("--snapshot-jsons", action=argparse.BooleanOptionalAction,
+                    default=True,
+                    help="copy the result JSONs the scoreboard reads into the "
+                         "output directory so docs/ holds a self-contained "
+                         "snapshot (default on; pass --no-snapshot-jsons to "
+                         "skip).")
     args = ap.parse_args()
 
     print(f"Building report → {args.out}")
@@ -2642,11 +2675,41 @@ point.</p>
 </body></html>
 """
 
-    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    out_dir = os.path.dirname(args.out)
+    os.makedirs(out_dir, exist_ok=True)
     with open(args.out, "w") as f:
         f.write(html)
     size = os.path.getsize(args.out)
     print(f"Wrote {args.out}  ({size:,} bytes)")
+
+    if args.snapshot_jsons:
+        _snapshot_result_jsons(out_dir)
+
+
+def _snapshot_result_jsons(out_dir: str) -> None:
+    """Mirror the lightweight result JSONs from runs/ into the output
+    directory so a single folder (docs/) holds a complete, self-contained
+    snapshot of the latest scoreboard plus the data behind it."""
+    import shutil
+    runs_dir = os.path.join(REPO_ROOT, "runs")
+    copied = 0
+    for rel in ("alignment_summary.json", "summary.json"):
+        src = os.path.join(runs_dir, rel)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(out_dir, rel))
+            copied += 1
+    forge_src = os.path.join(runs_dir, "sae_forge")
+    forge_dst = os.path.join(out_dir, "sae_forge")
+    if os.path.isdir(forge_src):
+        for run_id in sorted(os.listdir(forge_src)):
+            results = os.path.join(forge_src, run_id, "forge_results.json")
+            if not os.path.exists(results):
+                continue
+            dst = os.path.join(forge_dst, run_id, "forge_results.json")
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(results, dst)
+            copied += 1
+    print(f"Copied {copied} result JSON(s) into {out_dir}")
 
 
 if __name__ == "__main__":

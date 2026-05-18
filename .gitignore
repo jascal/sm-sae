@@ -23,21 +23,17 @@ ENV/
 .claude/
 
 # Project artifacts (generated)
-runs/*
+runs/
 *.pt
 *.ckpt
 
-# Negative-glob exceptions: lightweight result files are checked in so
-# the latest benchmark snapshot can be shared without rebuilding. Heavy
-# artifacts (.pt, .safetensors, intermediate validation reports, the
-# cascade_host directory) stay ignored.
-!runs/alignment_summary.json
-!runs/summary.json
-!runs/visualize.html
-!runs/sae_forge/
-runs/sae_forge/**
-!runs/sae_forge/**/
-!runs/sae_forge/**/forge_results.json
+# The share-ready snapshot (HTML scoreboard + the JSON results behind
+# it) lives at docs/ and is published by GitHub Pages on every push to
+# main. `scripts/visualize.py` writes docs/index.html and copies the
+# accompanying JSONs from runs/ into docs/ so the directory is
+# self-contained. runs/ stays ignored as the scratch directory for
+# heavy artifacts (.pt, .safetensors, intermediate validation reports,
+# cascade_host/).
 
 # Generated SM data — checked in for now so the repo is usable without
 # running scripts/build_data.py first.  Comment these in to track only
