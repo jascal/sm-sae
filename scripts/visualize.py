@@ -1715,7 +1715,7 @@ def _format_forge_pipeline_results() -> str:
                 + missing(os.path.join(forge_dir, "*", "forge_results.json"),
                           "run scripts/forge_pipeline.py &lt;run_id&gt;"))
 
-    rows = ['<thead><tr><th>run</th><th>encoding</th>'
+    rows = ['<thead><tr><th>run</th><th>encoding</th><th>selection</th>'
             '<th>dict features</th><th>compress</th>'
             '<th>baseline cov≥0.95</th><th>forge score</th>'
             '<th>forge stage</th></tr></thead><tbody>']
@@ -1727,7 +1727,9 @@ def _format_forge_pipeline_results() -> str:
             continue
         run_id = r.get("run_id", "?")
         enc = r.get("encoding", "?")
-        d_n = r.get("dictionary", {}).get("n_features", "?")
+        dict_block = r.get("dictionary", {})
+        d_n = dict_block.get("n_features", "?")
+        sel_method = (dict_block.get("selection") or {}).get("method", "—")
         cs = r.get("compress", {})
         if "error" in cs:
             cs_cell = f"<span class='fail'>err: {escape(cs['error'][:60])}</span>"
@@ -1745,6 +1747,7 @@ def _format_forge_pipeline_results() -> str:
         rows.append(
             f"<tr><td><code>{escape(run_id)}</code></td>"
             f"<td><code>{escape(enc)}</code></td>"
+            f"<td><code>{escape(sel_method)}</code></td>"
             f"<td>{d_n}</td>"
             f"<td>{cs_cell}</td>"
             f"<td>{bcov_cell}</td>"
@@ -1763,9 +1766,24 @@ def _format_forge_pipeline_results() -> str:
   &mdash; this is the number the forged model has to beat (or at least
   match) for the forge to be worth doing on this fixture.</p>
   {table}
+  <p class="aside"><strong>Reading the <em>selection</em> column.</strong>
+  The polygram encoding caps the Dictionary at a small number of features
+  (Rung3 → 16, MPSRung1 → 8). When the SAE has more features than the cap
+  &mdash; which it always does on this fixture &mdash; we have to pick a
+  subset. <code>head</code> is the legacy behaviour: take the first
+  <em>N</em> features by ID, which is arbitrary because SAE feature IDs
+  reflect training-time allocation order, not utility. <code>firing_rate</code>
+  keeps the features that actually fire on the feed; <code>gt_alignment</code>
+  keeps the features most discriminative against GT labels. The selection
+  choice can move downstream Compressor cluster counts by 2&ndash;3&times;
+  on the same SAE: <code>head</code> on <code>cascade__jumprelu</code>
+  yields 1 cluster, <code>firing_rate</code> yields 3, because the
+  arbitrary slice through 128 features happens to miss most of the
+  confirmed pairs the ValidationReport identified.</p>
   <p class="aside">To populate this table, run
-  <code>python scripts/forge_pipeline.py &lt;feed&gt;__&lt;variant&gt;</code>.
-  The pipeline writes <code>runs/sae_forge/&lt;run_id&gt;/forge_results.json</code>
+  <code>python scripts/forge_pipeline.py &lt;feed&gt;__&lt;variant&gt;
+  [--select-by firing_rate|gt_alignment|head]</code>. The pipeline writes
+  <code>runs/sae_forge/&lt;run_id&gt;/forge_results.json</code>
   which this section reads on rebuild.</p>
 """
 
