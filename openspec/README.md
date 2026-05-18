@@ -42,6 +42,7 @@ Once a change lands and stabilises, move its directory under
 | change | status | priority |
 |---|---|---|
 | [add-cascade-host-shim](changes/add-cascade-host-shim/) | proposed | P0 |
-| [principled-feature-selection-at-encoding-cap](changes/principled-feature-selection-at-encoding-cap/) | proposed | P1 |
+| [principled-feature-selection-at-encoding-cap](changes/principled-feature-selection-at-encoding-cap/) | in progress (gate 8.4 missed; see follow-up) | P1 |
+| [diagnose-compressor-over-consolidation](changes/diagnose-compressor-over-consolidation/) | proposed (follow-up to selection) | P1 |
 | [per-encoding-scoreboard-axes-a-b](changes/per-encoding-scoreboard-axes-a-b/) | proposed | P1 |
 | [auto-tune-subspace-projector-scale-boost](changes/auto-tune-subspace-projector-scale-boost/) | proposed | P2 |
