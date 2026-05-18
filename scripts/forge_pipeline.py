@@ -19,8 +19,20 @@ Stages 1–4 and 8–9 are implemented now. Stages 5–6 are partially implement
 stubbed pending the upstream pluggable-Faithfulness release.
 
 Usage:
-    python scripts/forge_pipeline.py <feed>__<variant> [--encoding rung3]
+    python scripts/forge_pipeline.py <feed>__<variant>
+        [--encoding rung5] [--n-amp-qubits 4]
         [--select-by firing_rate|gt_alignment|head] [--out runs/sae_forge]
+
+Encoding choices (stage 4):
+    mps_rung1   cap=8     — tightest; only suitable for SAEs with very
+                            few useful features.
+    rung3       cap=16    — pre-2026-05 default; throws away most of
+                            the cascade SAE's 128 features.
+    rung4       cap=32
+    rung5       cap=2**(n_amp_qubits + 3)  — default. With
+                --n-amp-qubits 4 (the new default) cap=128, matching
+                the cascade SAE width and exceeding the 110-feature
+                GT vocabulary.
 
 Selector choices (stage 4):
     firing_rate   keep the cap-many features that fire most often on the feed
@@ -61,14 +73,32 @@ def load_sae(ckpt_path: str):
 # Stage 2: convert to safetensors (polygram-compatible layout)
 # ---------------------------------------------------------------------------
 def convert_to_safetensors(sae, out_path: str) -> str:
-    """Write the SAE's W_dec, W_enc, b_enc, b_dec to a safetensors file using
-    the canonical SAE-Lens key naming that polygram.load_sae_safetensors picks
-    up (W_dec is the preferred decoder key).
+    """Write the SAE's W_dec, W_enc, b_enc, b_dec to a safetensors file in
+    the layout polygram expects:
+
+      - W_dec : (n_features, input_dim)  — polygram's loader treats rows
+                                           as features (see build_records).
+      - W_enc : (input_dim, n_features)  — polygram's compress strategies
+                                           index encoder *columns* by
+                                           feature id; if W_enc is shaped
+                                           (n_features, input_dim) instead,
+                                           the indexing silently works
+                                           while n_features <= input_dim
+                                           and raises IndexError once
+                                           the SAE is over-complete.
+                                           Pin the documented layout
+                                           (polygram validator.py:311
+                                           "(d_model, n_features_total)")
+                                           up front to avoid that.
+
+    The sm-sae `_BaseSAE` keeps W_dec as `(input_dim, n_features)` and
+    W_enc as `(n_features, input_dim)` internally; both are transposed
+    once on write.
     """
     from safetensors.torch import save_file
     state = {
-        "W_dec": sae.W_dec.detach().contiguous(),   # (input_dim, n_features)
-        "W_enc": sae.W_enc.detach().contiguous(),   # (n_features, input_dim)
+        "W_dec": sae.W_dec.detach().t().contiguous(),   # → (n_features, input_dim)
+        "W_enc": sae.W_enc.detach().t().contiguous(),   # → (input_dim, n_features)
         "b_enc": sae.b_enc.detach().contiguous(),
         "b_dec": sae.b_dec.detach().contiguous(),
     }
@@ -80,21 +110,15 @@ def convert_to_safetensors(sae, out_path: str) -> str:
 # Stage 3: build SAEFeatureRecord dict from the safetensors
 # ---------------------------------------------------------------------------
 def build_records(safetensors_path: str) -> dict:
-    """Use polygram's loader to get the dict[int, SAEFeatureRecord] form."""
+    """Use polygram's loader to get the dict[int, SAEFeatureRecord] form.
+
+    `convert_to_safetensors` already writes the polygram-canonical layout
+    (W_dec=(n_features, input_dim), W_enc=(input_dim, n_features)), so
+    this is now a straight delegation. The earlier in-place transpose
+    on read is gone (it was a workaround for `convert_to_safetensors`
+    writing the wrong axis order).
+    """
     from polygram import load_sae_safetensors
-    # W_dec is (input_dim, n_features) so polygram needs to know which axis is
-    # features. Per its docstring, "W_dec" is row-as-feature (i.e. it expects
-    # transpose). Our W_dec layout has features as columns of a (D, F) matrix,
-    # so we need to fix this before/after.
-    # Workaround: write the transpose under the W_dec key so the loader picks
-    # the right rows.
-    import safetensors.torch as st
-    from safetensors.torch import save_file
-    sd = st.load_file(safetensors_path)
-    if sd["W_dec"].shape[0] != sd["W_enc"].shape[0]:
-        # W_dec is (input_dim, n_features) but loader wants (n_features, input_dim)
-        sd["W_dec"] = sd["W_dec"].T.contiguous()
-        save_file(sd, safetensors_path)
     return load_sae_safetensors(safetensors_path)
 
 
@@ -179,14 +203,21 @@ def _resolve_selector(arg):
 # ---------------------------------------------------------------------------
 # Stage 4: SAEFeatureRecord dict → polygram.Dictionary
 # ---------------------------------------------------------------------------
-def build_dictionary(records: dict, encoding_name: str = "rung3",
-                     selector="firing_rate", sae=None, feed=None):
+def build_dictionary(records: dict, encoding_name: str = "rung5",
+                     selector="firing_rate", sae=None, feed=None,
+                     n_amp_qubits: int = 4):
     """Wrap records as a polygram Dictionary using the chosen encoding.
 
     The selector decides which `cap` of the SAE's features the Dictionary
     sees (cap = encoding.max_features). `selector` is a SELECTORS key or
     a callable (sae, feed, records) -> list[int]. `sae`/`feed` are
     required for any selector other than `"head"`.
+
+    `n_amp_qubits` only matters for the `rung5` encoding and sets its
+    cap = 2 ** (n_amp_qubits + 3) (so n_amp_qubits=4 → cap=128). The
+    default of 4 matches the cascade SAE's 128 features end-to-end and
+    is sized to cover the full 110-feature GT vocabulary with room to
+    spare.
 
     Returns (dictionary, sel_report, selection_meta) where selection_meta
     is `{method, n_candidates, n_kept, kept_ids, ordered_ids}`.
@@ -196,7 +227,7 @@ def build_dictionary(records: dict, encoding_name: str = "rung3",
         "mps_rung1": lambda: MPSRung1(bond_dim=2, phase_knobs=True),
         "rung3":     lambda: Rung3(bond_dim=2),
         "rung4":     lambda: Rung4(bond_dim=2),
-        "rung5":     lambda: Rung5(bond_dim=2, n_amp_qubits=1),
+        "rung5":     lambda: Rung5(bond_dim=2, n_amp_qubits=n_amp_qubits),
     }
     if encoding_name not in builders:
         raise ValueError(f"unknown encoding {encoding_name!r}; "
@@ -218,7 +249,25 @@ def build_dictionary(records: dict, encoding_name: str = "rung3",
             f"records.keys(); got {len(ordered_ids)} ids "
             f"(expected {len(records)}).")
 
-    cap = getattr(encoding, "max_features", len(ordered_ids))
+    encoding_cap = getattr(encoding, "max_features", len(ordered_ids))
+    # Natural ceiling: there can't be more kept features than the SAE
+    # actually has. (Previously this also clamped at sae.input_dim as a
+    # workaround for an apparent polygram IndexError on overcomplete
+    # bases; investigation showed the root cause was sm-sae writing
+    # W_enc with the wrong axis order. `convert_to_safetensors` now
+    # writes the polygram-canonical (input_dim, n_features) layout and
+    # the input_dim clamp is unnecessary.)
+    sae_n_features = len(records)
+    cap = min(encoding_cap, sae_n_features)
+    if cap < encoding_cap:
+        import warnings
+        warnings.warn(
+            f"encoding {encoding_name!r} cap={encoding_cap} clamped to "
+            f"{cap} (the SAE only has {sae_n_features} features). "
+            f"Train a wider SAE if you need to use the encoding's full "
+            f"capacity.",
+            UserWarning, stacklevel=2,
+        )
     kept_ids = ordered_ids[:cap]
 
     dictionary, sel_report = from_sae_lens(
@@ -235,6 +284,8 @@ def build_dictionary(records: dict, encoding_name: str = "rung3",
         "n_kept":        len(kept_ids),
         "kept_ids":      [int(i) for i in kept_ids],
         "ordered_ids":   [int(i) for i in ordered_ids],
+        "encoding_cap":  int(encoding_cap),
+        "cap_applied":   int(cap),
     }
     return dictionary, sel_report, selection_meta
 
@@ -608,8 +659,18 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("run_id",
                     help="e.g. embedded__topk; reads runs/<run_id>.pt")
-    ap.add_argument("--encoding", default="rung3",
-                    choices=["mps_rung1", "rung3", "rung4", "rung5"])
+    ap.add_argument("--encoding", default="rung5",
+                    choices=["mps_rung1", "rung3", "rung4", "rung5"],
+                    help="polygram encoding family. Default rung5 (cap "
+                         "= 2 ** (n_amp_qubits + 3); with the default "
+                         "--n-amp-qubits 4 that is 128 features, "
+                         "matching the cascade SAE width and exceeding "
+                         "the 110-feature GT vocabulary).")
+    ap.add_argument("--n-amp-qubits", type=int, default=4, dest="n_amp_qubits",
+                    help="number of amplitude qubits for rung5; cap = "
+                         "2 ** (n_amp_qubits + 3). Choices 1..4 give "
+                         "caps 16/32/64/128. Ignored for other "
+                         "encodings.")
     ap.add_argument("--select-by", default="firing_rate",
                     choices=sorted(SELECTORS.keys()),
                     dest="select_by",
@@ -658,6 +719,7 @@ def main():
     dictionary, sel_report, selection_meta = build_dictionary(
         records, args.encoding,
         selector=args.select_by, sae=sae, feed=feed,
+        n_amp_qubits=args.n_amp_qubits,
     )
     print(f"      {len(dictionary.features)} features kept "
           f"(encoding cap = {getattr(dictionary.encoding, 'max_features', '?')}; "
