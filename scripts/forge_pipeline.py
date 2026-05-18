@@ -19,8 +19,20 @@ Stages 1–4 and 8–9 are implemented now. Stages 5–6 are partially implement
 stubbed pending the upstream pluggable-Faithfulness release.
 
 Usage:
-    python scripts/forge_pipeline.py <feed>__<variant> [--encoding rung3]
+    python scripts/forge_pipeline.py <feed>__<variant>
+        [--encoding rung5] [--n-amp-qubits 4]
         [--select-by firing_rate|gt_alignment|head] [--out runs/sae_forge]
+
+Encoding choices (stage 4):
+    mps_rung1   cap=8     — tightest; only suitable for SAEs with very
+                            few useful features.
+    rung3       cap=16    — pre-2026-05 default; throws away most of
+                            the cascade SAE's 128 features.
+    rung4       cap=32
+    rung5       cap=2**(n_amp_qubits + 3)  — default. With
+                --n-amp-qubits 4 (the new default) cap=128, matching
+                the cascade SAE width and exceeding the 110-feature
+                GT vocabulary.
 
 Selector choices (stage 4):
     firing_rate   keep the cap-many features that fire most often on the feed
@@ -179,14 +191,21 @@ def _resolve_selector(arg):
 # ---------------------------------------------------------------------------
 # Stage 4: SAEFeatureRecord dict → polygram.Dictionary
 # ---------------------------------------------------------------------------
-def build_dictionary(records: dict, encoding_name: str = "rung3",
-                     selector="firing_rate", sae=None, feed=None):
+def build_dictionary(records: dict, encoding_name: str = "rung5",
+                     selector="firing_rate", sae=None, feed=None,
+                     n_amp_qubits: int = 4):
     """Wrap records as a polygram Dictionary using the chosen encoding.
 
     The selector decides which `cap` of the SAE's features the Dictionary
     sees (cap = encoding.max_features). `selector` is a SELECTORS key or
     a callable (sae, feed, records) -> list[int]. `sae`/`feed` are
     required for any selector other than `"head"`.
+
+    `n_amp_qubits` only matters for the `rung5` encoding and sets its
+    cap = 2 ** (n_amp_qubits + 3) (so n_amp_qubits=4 → cap=128). The
+    default of 4 matches the cascade SAE's 128 features end-to-end and
+    is sized to cover the full 110-feature GT vocabulary with room to
+    spare.
 
     Returns (dictionary, sel_report, selection_meta) where selection_meta
     is `{method, n_candidates, n_kept, kept_ids, ordered_ids}`.
@@ -196,7 +215,7 @@ def build_dictionary(records: dict, encoding_name: str = "rung3",
         "mps_rung1": lambda: MPSRung1(bond_dim=2, phase_knobs=True),
         "rung3":     lambda: Rung3(bond_dim=2),
         "rung4":     lambda: Rung4(bond_dim=2),
-        "rung5":     lambda: Rung5(bond_dim=2, n_amp_qubits=1),
+        "rung5":     lambda: Rung5(bond_dim=2, n_amp_qubits=n_amp_qubits),
     }
     if encoding_name not in builders:
         raise ValueError(f"unknown encoding {encoding_name!r}; "
@@ -218,7 +237,29 @@ def build_dictionary(records: dict, encoding_name: str = "rung3",
             f"records.keys(); got {len(ordered_ids)} ids "
             f"(expected {len(records)}).")
 
-    cap = getattr(encoding, "max_features", len(ordered_ids))
+    encoding_cap = getattr(encoding, "max_features", len(ordered_ids))
+    # Polygram's Compressor indexes into arrays of shape (..., input_dim)
+    # with feature IDs, so it raises IndexError when cap > sae.input_dim.
+    # Clamp to keep the pipeline robust; downstream gates the actual
+    # feature ceiling on min(encoding cap, SAE feature count, SAE input
+    # dim). The Compressor's overcomplete-basis support is tracked as a
+    # follow-up upstream.
+    sae_n_features = len(records)
+    sae_input_dim = (
+        int(getattr(sae, "input_dim", sae_n_features))
+        if sae is not None else sae_n_features
+    )
+    cap = min(encoding_cap, sae_n_features, sae_input_dim)
+    if cap < encoding_cap:
+        import warnings
+        warnings.warn(
+            f"encoding {encoding_name!r} cap={encoding_cap} clamped to "
+            f"{cap} (= min(encoding cap, n_records={sae_n_features}, "
+            f"sae.input_dim={sae_input_dim})). The Compressor cannot "
+            f"index into overcomplete bases; this is a polygram-side "
+            f"limit, not an sm-sae policy.",
+            UserWarning, stacklevel=2,
+        )
     kept_ids = ordered_ids[:cap]
 
     dictionary, sel_report = from_sae_lens(
@@ -235,6 +276,9 @@ def build_dictionary(records: dict, encoding_name: str = "rung3",
         "n_kept":        len(kept_ids),
         "kept_ids":      [int(i) for i in kept_ids],
         "ordered_ids":   [int(i) for i in ordered_ids],
+        "encoding_cap":  int(encoding_cap),
+        "sae_input_dim": int(sae_input_dim),
+        "cap_applied":   int(cap),
     }
     return dictionary, sel_report, selection_meta
 
@@ -608,8 +652,18 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("run_id",
                     help="e.g. embedded__topk; reads runs/<run_id>.pt")
-    ap.add_argument("--encoding", default="rung3",
-                    choices=["mps_rung1", "rung3", "rung4", "rung5"])
+    ap.add_argument("--encoding", default="rung5",
+                    choices=["mps_rung1", "rung3", "rung4", "rung5"],
+                    help="polygram encoding family. Default rung5 (cap "
+                         "= 2 ** (n_amp_qubits + 3); with the default "
+                         "--n-amp-qubits 4 that is 128 features, "
+                         "matching the cascade SAE width and exceeding "
+                         "the 110-feature GT vocabulary).")
+    ap.add_argument("--n-amp-qubits", type=int, default=4, dest="n_amp_qubits",
+                    help="number of amplitude qubits for rung5; cap = "
+                         "2 ** (n_amp_qubits + 3). Choices 1..4 give "
+                         "caps 16/32/64/128. Ignored for other "
+                         "encodings.")
     ap.add_argument("--select-by", default="firing_rate",
                     choices=sorted(SELECTORS.keys()),
                     dest="select_by",
@@ -658,6 +712,7 @@ def main():
     dictionary, sel_report, selection_meta = build_dictionary(
         records, args.encoding,
         selector=args.select_by, sae=sae, feed=feed,
+        n_amp_qubits=args.n_amp_qubits,
     )
     print(f"      {len(dictionary.features)} features kept "
           f"(encoding cap = {getattr(dictionary.encoding, 'max_features', '?')}; "
