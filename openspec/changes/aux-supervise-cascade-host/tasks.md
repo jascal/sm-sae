@@ -137,8 +137,12 @@
 - [ ] 9.1 Add `scripts/probe_host_aux_recoverability.py`: trains a
       tiny linear classifier from a host's pooled hidden state to
       each of the 5 aux labels, with the host's weights frozen.
-      Reports per-label AUC. Run on both a non-aux-trained host
-      (PR #10 baseline) and a `--aux-supervision pooled` host.
-      Headline question: were the aux labels already recoverable
-      without supervision? If so, that explains a flat gate 7.3
-      outcome; if not, aux supervision is doing genuine work.
+      Reports per-label AUC. Run on **both** a non-aux-trained host
+      (PR #10 baseline) and a `--aux-supervision pooled` host, then
+      report per-label **`Δ AUC = aux-trained − baseline`** alongside
+      the raw values. Headline questions answered by the table:
+      (a) were the aux labels already recoverable without
+      supervision? (high baseline AUC → flat ΔAUC predicts flat
+      gate 7.3); (b) where supervision *did* add information, on
+      which labels was the lift concentrated? Cheap (~5 min) and
+      runs before any forge pipeline re-run.

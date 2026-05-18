@@ -91,6 +91,23 @@ work; if specifically the rare-class labels (`originated_from_top`,
 econ-sae's Phase 6.1 hit and the fix (focal loss / pos_weight) is
 already documented upstream.
 
+The two high-prevalence conservation labels are intentional:
+- They're cheap **sanity gradients**. Even when the next-state
+  objective already pressures the model to represent token-level
+  conservation implicitly, an explicit per-state target gives a
+  small, stable signal that the pooled hidden state is correctly
+  summarising the multiset.
+- They're the **falsification axis** for the recoverability probe
+  (Task 9.1). If the un-aux-trained host already recovers them at
+  AUC > 0.95, then aux supervision on those specific labels is
+  cosmetic — useful as a control, not as a lever.
+
+Expected unsupervised recoverability is a prediction this change
+will *measure*, not assume. The probe runs before training; if all
+five labels are already recoverable at AUC > 0.9 from a non-aux
+host, we expect a flat gate-7.3 outcome and the diagnosis pivots
+elsewhere.
+
 ### 3. `λ = 1.0` default, override via `--aux-lambda`
 
 Same scaling as econ-sae Phase 5.1, which empirically worked. Both
@@ -98,6 +115,12 @@ losses live on the same logit scale (cross-entropy on `vocab=62`
 tokens, BCE on 5 binary labels) — order-of-magnitude similar. A
 sweep over `λ ∈ {0.1, 1.0, 10.0}` is a small follow-up if v1 lands
 near-miss.
+
+Per-loss components are logged separately every 100 steps (see
+[`tasks.md`](tasks.md) 4.3(e)) and the final BCE value is recorded
+in `config.json` as `aux_loss_final`, so a near-miss can be
+diagnosed as "balance off" vs "labels not learnable" without a
+re-run.
 
 ### 4. Aux supervision is opt-in; default behaviour unchanged
 

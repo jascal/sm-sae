@@ -119,7 +119,13 @@ P1 — directly addresses the longest-open gate in the project.
 - **Token-level aux supervision** (predict aux labels per-position
   instead of pooled). Pooled is simpler and matches econ-sae Phase
   5.1's approach; per-token is a future follow-up if cleaner per-
-  feature recovery turns out to need per-position structure.
+  feature recovery turns out to need per-position structure. Going
+  per-token would mean (a) reshaping the aux head from one Linear
+  on pooled `(B, n_embd)` to a per-position Linear on
+  `(B, T, n_embd)`, (b) deriving per-position labels (most v1
+  labels are per-state, not per-token, and so don't even make
+  sense per-position), and (c) re-balancing λ to account for the
+  T-fold increase in per-batch aux loss magnitude.
 - **Class-imbalance handling** (focal loss, pos_weight). Defer until
   the v1 measurement shows whether class imbalance is actually
   hurting any of the 5 labels.
