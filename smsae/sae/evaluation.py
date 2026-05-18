@@ -79,6 +79,36 @@ def build_gt_matrix(feed: Feed) -> np.ndarray:
     return Y
 
 
+def auc_matrix(Z: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    """Vectorized per-SAE-feature AUC against each GT label.
+
+    Z: (N, F) continuous activations.
+    Y: (N, M) binary labels.
+    Returns (F, M) AUC; inactive SAE features and degenerate columns get 0.5.
+    """
+    N, F = Z.shape
+    M = Y.shape[1]
+    A = np.full((F, M), 0.5, dtype=np.float32)
+    n_pos = Y.sum(axis=0).astype(np.float64)
+    n_neg = N - n_pos
+    valid = (n_pos > 0) & (n_neg > 0)
+    if not valid.any():
+        return A
+    for f in range(F):
+        col = Z[:, f]
+        if float(col.max()) <= 1e-9:
+            continue
+        order = np.argsort(-col, kind="stable")
+        ranks = np.empty(N, dtype=np.float64)
+        ranks[order] = np.arange(N, dtype=np.float64)
+        rank_sum = (Y * ranks[:, None]).sum(axis=0)
+        U = rank_sum - n_pos * (n_pos - 1) / 2.0
+        with np.errstate(divide="ignore", invalid="ignore"):
+            auc = 1.0 - U / np.where(valid, n_pos * n_neg, 1.0)
+        A[f] = np.where(valid, auc, 0.5).astype(np.float32)
+    return A
+
+
 def score_sae(sae, feed: Feed) -> np.ndarray:
     """(N, n_features) activation magnitudes."""
     with torch.no_grad():

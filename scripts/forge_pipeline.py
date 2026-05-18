@@ -19,7 +19,16 @@ Stages 1–4 and 8–9 are implemented now. Stages 5–6 are partially implement
 stubbed pending the upstream pluggable-Faithfulness release.
 
 Usage:
-    python scripts/forge_pipeline.py <feed>__<variant> [--encoding rung3] [--out runs/sae_forge]
+    python scripts/forge_pipeline.py <feed>__<variant> [--encoding rung3]
+        [--select-by firing_rate|gt_alignment|head] [--out runs/sae_forge]
+
+Selector choices (stage 4):
+    firing_rate   keep the cap-many features that fire most often on the feed
+                  (default — captures features the SAE actually uses)
+    gt_alignment  keep features with highest |max AUC - 0.5| against GT labels
+                  (most useful for the benchmark)
+    head          keep the cap-many features with the lowest feature_ids
+                  (legacy behaviour; reproducible but arbitrary)
 """
 
 from __future__ import annotations
@@ -90,11 +99,98 @@ def build_records(safetensors_path: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Stage 3.5: feature selectors — pick the top-cap SAE features for the encoding
+# ---------------------------------------------------------------------------
+# A selector maps (sae, feed, records) -> list[int] returning ALL feature IDs
+# in preferred-keep order (best first). The caller applies `[:cap]` after, so
+# selectors don't need to know the encoding cap. Returned IDs must be a
+# permutation of `records.keys()` so the cap-slice is meaningful.
+
+def select_by_head(sae, feed, records) -> list[int]:
+    """Current behaviour: feature IDs in ascending numeric order.
+
+    Useful as an explicit opt-in to reproduce pre-change runs.
+    """
+    return sorted(records.keys())
+
+
+def select_by_firing_rate(sae, feed, records) -> list[int]:
+    """Rank features by mean firing rate on the feed (descending).
+
+    Captures features that actually fire on real inputs. Tie-break on
+    feature_id ascending for determinism.
+    """
+    ids = sorted(records.keys())
+    with torch.no_grad():
+        z = sae(feed.X).z.detach().cpu()        # (N, F_full)
+    rate = (z.abs() > 1e-9).float().mean(dim=0).numpy()  # (F_full,)
+    # Restrict to the feature IDs that exist in records (defensive: usually
+    # records covers 0..F_full-1, but don't assume).
+    scores = [(-float(rate[i]), i) for i in ids]
+    scores.sort()  # ascending by -rate (i.e. descending rate); ties → id asc
+    return [i for _, i in scores]
+
+
+def select_by_gt_alignment(sae, feed, records) -> list[int]:
+    """Rank features by max AUC across GT labels (descending).
+
+    Captures features most useful for the benchmark. Tie-break on
+    feature_id ascending for determinism.
+    """
+    from smsae.sae.evaluation import auc_matrix, build_gt_matrix
+    ids = sorted(records.keys())
+    with torch.no_grad():
+        z = sae(feed.X).z.detach().cpu().numpy().astype(np.float32)
+    Y = build_gt_matrix(feed)
+    A = auc_matrix(z, Y)                         # (F_full, M)
+    # Per-feature "usefulness" = best AUC across any GT label. Center around
+    # 0.5 so a feature with no signal scores 0 (random AUC), and a perfectly
+    # anti-correlated feature also scores high — we care about discriminative
+    # power, not sign.
+    best = np.abs(A.max(axis=1) - 0.5) if A.size else np.zeros(len(ids))
+    scores = [(-float(best[i]), i) for i in ids]
+    scores.sort()
+    return [i for _, i in scores]
+
+
+SELECTORS = {
+    "head":          select_by_head,
+    "firing_rate":   select_by_firing_rate,
+    "gt_alignment":  select_by_gt_alignment,
+}
+
+
+def _resolve_selector(arg):
+    """Accept either a registry key (str) or a user-supplied callable.
+
+    Returns the resolved callable. Raises ValueError for unknown keys.
+    """
+    if callable(arg):
+        return arg
+    if isinstance(arg, str):
+        if arg not in SELECTORS:
+            raise ValueError(
+                f"unknown selector {arg!r}; choose from {sorted(SELECTORS)} "
+                f"or pass a callable (sae, feed, records) -> list[int]")
+        return SELECTORS[arg]
+    raise TypeError(f"selector must be str or callable, got {type(arg).__name__}")
+
+
+# ---------------------------------------------------------------------------
 # Stage 4: SAEFeatureRecord dict → polygram.Dictionary
 # ---------------------------------------------------------------------------
-def build_dictionary(records: dict, encoding_name: str = "rung3"):
+def build_dictionary(records: dict, encoding_name: str = "rung3",
+                     selector="firing_rate", sae=None, feed=None):
     """Wrap records as a polygram Dictionary using the chosen encoding.
-    Picks the encoding constructor matching encoding_name."""
+
+    The selector decides which `cap` of the SAE's features the Dictionary
+    sees (cap = encoding.max_features). `selector` is a SELECTORS key or
+    a callable (sae, feed, records) -> list[int]. `sae`/`feed` are
+    required for any selector other than `"head"`.
+
+    Returns (dictionary, sel_report, selection_meta) where selection_meta
+    is `{method, n_candidates, n_kept, kept_ids, ordered_ids}`.
+    """
     from polygram import from_sae_lens, MPSRung1, Rung3, Rung4, Rung5
     builders = {
         "mps_rung1": lambda: MPSRung1(bond_dim=2, phase_knobs=True),
@@ -107,20 +203,40 @@ def build_dictionary(records: dict, encoding_name: str = "rung3"):
                          f"choose from {list(builders)}")
     encoding = builders[encoding_name]()
 
-    feat_ids = list(records.keys())
-    # Cap at the encoding's max_features (e.g. MPSRung1 = 8, Rung3 = 16).
-    cap = getattr(encoding, "max_features", len(feat_ids))
-    feat_ids = feat_ids[:cap]
+    selector_fn = _resolve_selector(selector)
+    method_name = selector if isinstance(selector, str) else getattr(
+        selector, "__name__", "custom")
+    if method_name != "head" and (sae is None or feed is None):
+        raise ValueError(
+            f"selector={method_name!r} needs sae and feed; only 'head' "
+            f"works without them.")
+
+    ordered_ids = list(selector_fn(sae, feed, records))
+    if sorted(ordered_ids) != sorted(records.keys()):
+        raise ValueError(
+            f"selector {method_name!r} did not return a permutation of "
+            f"records.keys(); got {len(ordered_ids)} ids "
+            f"(expected {len(records)}).")
+
+    cap = getattr(encoding, "max_features", len(ordered_ids))
+    kept_ids = ordered_ids[:cap]
 
     dictionary, sel_report = from_sae_lens(
         records,
-        feature_ids=feat_ids,
+        feature_ids=kept_ids,
         name=f"sm_sae_{encoding_name}",
         encoding=encoding,
         assign_amp_knobs=True,
         assign_phase_knobs=True,
     )
-    return dictionary, sel_report
+    selection_meta = {
+        "method":        method_name,
+        "n_candidates":  len(records),
+        "n_kept":        len(kept_ids),
+        "kept_ids":      [int(i) for i in kept_ids],
+        "ordered_ids":   [int(i) for i in ordered_ids],
+    }
+    return dictionary, sel_report, selection_meta
 
 
 # ---------------------------------------------------------------------------
@@ -289,8 +405,7 @@ class GroundTruthAlignment:
         # Mean-pool over the sequence dim: (N, T, F) -> (N, F)
         feats = hidden.mean(dim=1).cpu().numpy().astype(np.float32)
         # AUC of each feature vs each GT label
-        sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
-        from visualize import auc_matrix
+        from smsae.sae.evaluation import auc_matrix
         # Trim labels to match the number of samples we actually have
         N = min(feats.shape[0], self.labels.shape[0])
         A = auc_matrix(feats[:N], self.labels[:N])
@@ -413,9 +528,7 @@ def forge(compressed_path: str, sae, feed, run_dir: str) -> dict:
 def score_against_gt(activations: np.ndarray, feed) -> dict:
     """AUC of each feature column vs each GT label column. Returns a small
     summary dict shaped like the entries the scoreboard already consumes."""
-    sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
-    from visualize import auc_matrix
-    from smsae.sae.evaluation import build_gt_matrix
+    from smsae.sae.evaluation import auc_matrix, build_gt_matrix
     Y = build_gt_matrix(feed)
     A = auc_matrix(activations.astype(np.float32), Y)
     best_per_gt = A.max(axis=0) if A.size else np.zeros(Y.shape[1])
@@ -448,6 +561,11 @@ def main():
                     help="e.g. embedded__topk; reads runs/<run_id>.pt")
     ap.add_argument("--encoding", default="rung3",
                     choices=["mps_rung1", "rung3", "rung4", "rung5"])
+    ap.add_argument("--select-by", default="firing_rate",
+                    choices=sorted(SELECTORS.keys()),
+                    dest="select_by",
+                    help="how to pick the cap-many SAE features for the "
+                         "polygram Dictionary (default: firing_rate).")
     ap.add_argument("--feed", default=None,
                     help="override feed name; default inferred from run_id")
     ap.add_argument("--out", default=os.path.join(REPO_ROOT, "runs", "sae_forge"))
@@ -486,10 +604,15 @@ def main():
     print(f"      {len(records)} features loaded")
 
     # Stage 4
-    print(f"  [4] wrap as polygram.Dictionary (encoding={args.encoding})")
-    dictionary, sel_report = build_dictionary(records, args.encoding)
+    print(f"  [4] wrap as polygram.Dictionary "
+          f"(encoding={args.encoding}, select-by={args.select_by})")
+    dictionary, sel_report, selection_meta = build_dictionary(
+        records, args.encoding,
+        selector=args.select_by, sae=sae, feed=feed,
+    )
     print(f"      {len(dictionary.features)} features kept "
-          f"(encoding cap = {getattr(dictionary.encoding, 'max_features', '?')})")
+          f"(encoding cap = {getattr(dictionary.encoding, 'max_features', '?')}; "
+          f"selection = {selection_meta['method']})")
 
     # Stage 5
     print(f"  [5] synthesize ValidationReport from {feed.N} feed activations")
@@ -549,6 +672,7 @@ def main():
             "name": dictionary.name,
             "n_features": len(dictionary.features),
             "encoding_max": getattr(dictionary.encoding, "max_features", None),
+            "selection": selection_meta,
         },
         "compress":    comp_summary,
         "forge":       forge_summary,
