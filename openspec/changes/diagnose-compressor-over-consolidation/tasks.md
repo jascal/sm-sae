@@ -16,10 +16,21 @@
       `(rep_selection, merge_mode, score_field)` triples and a couple
       of `confirmer` settings. Record `n_clusters` per cell.
 - [ ] 2.2 **Hypothesis B — synthesized vreport is degenerate.**
-      Re-run with hand-perturbed `kl_ablate_*` values (e.g. sample from
-      `N(0.1, 0.05)` instead of `0.0`) and see whether the cluster
-      count moves. If yes → fix the vreport synthesizer; if no →
-      hypothesis A wins.
+      Two complementary tests (cells 11 and 12 in the design.md grid):
+      (a) **perturbation**: hand-perturb `kl_ablate_*` and
+      `kl_log_ratio_abs` with `N(0.1, 0.05)` instead of `0.0`;
+      (b) **no-signal**: if the polygram API allows it (check for a
+      `score_field` setting that excludes `kl_*` from contribution or
+      a Compressor-side "ignore-field" toggle), force the Compressor
+      to drop `kl_*` evidence entirely. Run both against the
+      default config and record `n_clusters`.
+
+      - (a) moves the count but (b) doesn't → polygram is using `kl_*`
+        but the perturbation distribution itself matters.
+      - (b) moves the count and (a) doesn't → polygram is using
+        `kl_*=0.0` as evidence, and any non-zero distribution suffices.
+      - Neither moves → Hypothesis A wins, polygram isn't reading
+        `kl_*` for the merge step at all.
 - [ ] 2.3 Write up the evidence in `design.md` "Investigation" section
       with a small markdown table per hypothesis.
 
@@ -51,9 +62,14 @@
 ## 5. Scoreboard caveat
 
 - [ ] 5.1 In `_format_forge_pipeline_results`, add a one-paragraph
-      caveat under the table flagging that 1–3 clusters on
-      `cascade__jumprelu` reflects a known Compressor-tuning issue,
-      with a link to this change's design.md.
+      caveat under the table that explicitly names the
+      `cascade__jumprelu` fixture as the case where the Compressor
+      collapses 20+ confirmed pairs into 1–3 clusters regardless of
+      selection method, flags it as a known Compressor-tuning issue
+      (not a feed/SAE/selection problem), and links to this change's
+      `design.md` for the investigation. Until 5.2 lands, the caveat
+      includes "rows where compress.clusters ≤ pairs/4 are
+      suspect".
 - [ ] 5.2 Once a winning config is found, recommend it in
       `_format_recommended_defaults` (Compressor row).
 

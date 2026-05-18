@@ -65,8 +65,12 @@ forge-score column is currently noise-bounded by the cluster collapse.
   the cause and (b) which polygram parameter combination, if any,
   recovers a cluster count proportional to confirmed-pair count.
 - **Scoreboard caveat**: until this investigation lands, add a one-line
-  caveat under the Forge pipeline runs table flagging that the cluster
-  collapse is a known limitation, not a property of the kept-feature
+  caveat under the Forge pipeline runs table naming the
+  `cascade__jumprelu` fixture specifically (the case where the
+  collapse is most visible — 20+ confirmed pairs → 1–3 clusters
+  regardless of selector) and flagging that the cluster collapse is a
+  known Compressor-tuning limitation, not a property of the
+  kept-feature
   subset.
 
 ## Capabilities
