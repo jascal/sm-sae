@@ -155,7 +155,7 @@
   },
   "forge": {
     "status": "ok",
-    "faithfulness": 0.874031662940979,
+    "faithfulness": 0.889246787093069,
     "faithfulness_target_name": "gt_alignment",
     "n_params": 33464,
     "host": {
@@ -178,5 +178,5 @@
     "coverage_0.90": 0.7272727272727273,
     "mean_best_auc": 0.9023341536521912
   },
-  "forge_score": 0.874031662940979
+  "forge_score": 0.889246787093069
 }

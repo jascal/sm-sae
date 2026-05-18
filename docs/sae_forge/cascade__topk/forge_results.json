@@ -283,7 +283,7 @@
   },
   "forge": {
     "status": "ok",
-    "faithfulness": 0.7484603524208069,
+    "faithfulness": 0.7461157214685491,
     "faithfulness_target_name": "gt_alignment",
     "n_params": 201836,
     "host": {
@@ -293,9 +293,9 @@
       "n_layer": 2,
       "n_head": 1,
       "n_params": 96746,
-      "train_loss_final": 2.0755672454833984,
-      "n_train_trajectories": 4000,
-      "n_train_steps": 3980,
+      "train_loss_final": 1.777829647064209,
+      "n_train_trajectories": 2000,
+      "n_train_steps": 500,
       "seed": 0
     }
   },
@@ -306,5 +306,5 @@
     "coverage_0.90": 0.30578512396694213,
     "mean_best_auc": 0.7054908871650696
   },
-  "forge_score": 0.7484603524208069
+  "forge_score": 0.7461157214685491
 }
