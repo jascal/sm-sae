@@ -73,14 +73,32 @@ def load_sae(ckpt_path: str):
 # Stage 2: convert to safetensors (polygram-compatible layout)
 # ---------------------------------------------------------------------------
 def convert_to_safetensors(sae, out_path: str) -> str:
-    """Write the SAE's W_dec, W_enc, b_enc, b_dec to a safetensors file using
-    the canonical SAE-Lens key naming that polygram.load_sae_safetensors picks
-    up (W_dec is the preferred decoder key).
+    """Write the SAE's W_dec, W_enc, b_enc, b_dec to a safetensors file in
+    the layout polygram expects:
+
+      - W_dec : (n_features, input_dim)  — polygram's loader treats rows
+                                           as features (see build_records).
+      - W_enc : (input_dim, n_features)  — polygram's compress strategies
+                                           index encoder *columns* by
+                                           feature id; if W_enc is shaped
+                                           (n_features, input_dim) instead,
+                                           the indexing silently works
+                                           while n_features <= input_dim
+                                           and raises IndexError once
+                                           the SAE is over-complete.
+                                           Pin the documented layout
+                                           (polygram validator.py:311
+                                           "(d_model, n_features_total)")
+                                           up front to avoid that.
+
+    The sm-sae `_BaseSAE` keeps W_dec as `(input_dim, n_features)` and
+    W_enc as `(n_features, input_dim)` internally; both are transposed
+    once on write.
     """
     from safetensors.torch import save_file
     state = {
-        "W_dec": sae.W_dec.detach().contiguous(),   # (input_dim, n_features)
-        "W_enc": sae.W_enc.detach().contiguous(),   # (n_features, input_dim)
+        "W_dec": sae.W_dec.detach().t().contiguous(),   # → (n_features, input_dim)
+        "W_enc": sae.W_enc.detach().t().contiguous(),   # → (input_dim, n_features)
         "b_enc": sae.b_enc.detach().contiguous(),
         "b_dec": sae.b_dec.detach().contiguous(),
     }
@@ -92,21 +110,15 @@ def convert_to_safetensors(sae, out_path: str) -> str:
 # Stage 3: build SAEFeatureRecord dict from the safetensors
 # ---------------------------------------------------------------------------
 def build_records(safetensors_path: str) -> dict:
-    """Use polygram's loader to get the dict[int, SAEFeatureRecord] form."""
+    """Use polygram's loader to get the dict[int, SAEFeatureRecord] form.
+
+    `convert_to_safetensors` already writes the polygram-canonical layout
+    (W_dec=(n_features, input_dim), W_enc=(input_dim, n_features)), so
+    this is now a straight delegation. The earlier in-place transpose
+    on read is gone (it was a workaround for `convert_to_safetensors`
+    writing the wrong axis order).
+    """
     from polygram import load_sae_safetensors
-    # W_dec is (input_dim, n_features) so polygram needs to know which axis is
-    # features. Per its docstring, "W_dec" is row-as-feature (i.e. it expects
-    # transpose). Our W_dec layout has features as columns of a (D, F) matrix,
-    # so we need to fix this before/after.
-    # Workaround: write the transpose under the W_dec key so the loader picks
-    # the right rows.
-    import safetensors.torch as st
-    from safetensors.torch import save_file
-    sd = st.load_file(safetensors_path)
-    if sd["W_dec"].shape[0] != sd["W_enc"].shape[0]:
-        # W_dec is (input_dim, n_features) but loader wants (n_features, input_dim)
-        sd["W_dec"] = sd["W_dec"].T.contiguous()
-        save_file(sd, safetensors_path)
     return load_sae_safetensors(safetensors_path)
 
 
@@ -238,26 +250,22 @@ def build_dictionary(records: dict, encoding_name: str = "rung5",
             f"(expected {len(records)}).")
 
     encoding_cap = getattr(encoding, "max_features", len(ordered_ids))
-    # Polygram's Compressor indexes into arrays of shape (..., input_dim)
-    # with feature IDs, so it raises IndexError when cap > sae.input_dim.
-    # Clamp to keep the pipeline robust; downstream gates the actual
-    # feature ceiling on min(encoding cap, SAE feature count, SAE input
-    # dim). The Compressor's overcomplete-basis support is tracked as a
-    # follow-up upstream.
+    # Natural ceiling: there can't be more kept features than the SAE
+    # actually has. (Previously this also clamped at sae.input_dim as a
+    # workaround for an apparent polygram IndexError on overcomplete
+    # bases; investigation showed the root cause was sm-sae writing
+    # W_enc with the wrong axis order. `convert_to_safetensors` now
+    # writes the polygram-canonical (input_dim, n_features) layout and
+    # the input_dim clamp is unnecessary.)
     sae_n_features = len(records)
-    sae_input_dim = (
-        int(getattr(sae, "input_dim", sae_n_features))
-        if sae is not None else sae_n_features
-    )
-    cap = min(encoding_cap, sae_n_features, sae_input_dim)
+    cap = min(encoding_cap, sae_n_features)
     if cap < encoding_cap:
         import warnings
         warnings.warn(
             f"encoding {encoding_name!r} cap={encoding_cap} clamped to "
-            f"{cap} (= min(encoding cap, n_records={sae_n_features}, "
-            f"sae.input_dim={sae_input_dim})). The Compressor cannot "
-            f"index into overcomplete bases; this is a polygram-side "
-            f"limit, not an sm-sae policy.",
+            f"{cap} (the SAE only has {sae_n_features} features). "
+            f"Train a wider SAE if you need to use the encoding's full "
+            f"capacity.",
             UserWarning, stacklevel=2,
         )
     kept_ids = ordered_ids[:cap]
@@ -277,7 +285,6 @@ def build_dictionary(records: dict, encoding_name: str = "rung5",
         "kept_ids":      [int(i) for i in kept_ids],
         "ordered_ids":   [int(i) for i in ordered_ids],
         "encoding_cap":  int(encoding_cap),
-        "sae_input_dim": int(sae_input_dim),
         "cap_applied":   int(cap),
     }
     return dictionary, sel_report, selection_meta
