@@ -23,9 +23,21 @@ ENV/
 .claude/
 
 # Project artifacts (generated)
-runs/
+runs/*
 *.pt
 *.ckpt
+
+# Negative-glob exceptions: lightweight result files are checked in so
+# the latest benchmark snapshot can be shared without rebuilding. Heavy
+# artifacts (.pt, .safetensors, intermediate validation reports, the
+# cascade_host directory) stay ignored.
+!runs/alignment_summary.json
+!runs/summary.json
+!runs/visualize.html
+!runs/sae_forge/
+runs/sae_forge/**
+!runs/sae_forge/**/
+!runs/sae_forge/**/forge_results.json
 
 # Generated SM data — checked in for now so the repo is usable without
 # running scripts/build_data.py first.  Comment these in to track only
