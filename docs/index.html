@@ -614,35 +614,43 @@ function, frozen at "ready to use" time.</p>
         of the feature set (the &quot;wider&quot; loop the README highlights)</li>
   </ul>
 
-  <h4>Status: running end-to-end on sm-sae as of sae-forge v0.4.0</h4>
-  <p>v0.4.0 shipped the pluggable
-  <code>saeforge.eval.FaithfulnessTarget</code> protocol with built-in
-  <code>KLTarget</code> and <code>CosineTarget</code>; the
-  <code>GroundTruthAlignment</code> built-in we'd hoped for didn't ship,
-  but the protocol is permissive enough that we implement it on our side
-  (<code>scripts/forge_pipeline.py:GroundTruthAlignment</code>). It reads
-  cascade-sample input_ids from <code>ctx['_eval_input_ids']</code>, runs
-  them through the forged model, mean-pools the residual stream, and
-  scores AUC against the sm-sae ground-truth label matrix. The pipeline
-  uses <code>ForgePipeline.run_synthetic</code> with a tiny in-memory
-  GPT-2 (n_embd matching the SAE's input_dim) as the host &mdash; no
-  HuggingFace <code>from_pretrained</code> step needed. End-to-end runs
-  for both <code>embedded__topk</code> and <code>cascade__jumprelu</code>
-  are in the <a href="#benchmark">scoreboard's Forge pipeline runs</a>
-  table.</p>
+  <h4>Status: running end-to-end on sm-sae against sae-forge v0.5.1</h4>
+  <p>sae-forge v0.5.1 ships everything sm-sae actually consumes:
+  <code>FaithfulnessTarget</code> (v0.4.0), the bundled
+  <code>GroundTruthTarget</code> (v0.5.0) used here as the Axis-C scorer,
+  and the <code>WorldModel</code> protocol (v0.5.1) that makes the
+  family registry pluggable. The pipeline runs end-to-end on every one
+  of the 9 (feed, variant) cells in the
+  <a href="#benchmark">Forge pipeline runs</a> table; the headline
+  post-W_enc-fix result is <code>cascade__jumprelu</code> reaching 12
+  Compressor clusters from its full 128-feature SAE width, up from 1
+  cluster under the legacy <code>rung3</code>+<code>head</code>
+  defaults.</p>
 
-  <h4>What's still synthetic</h4>
-  <p>The current host is a <strong>random-init GPT-2 placeholder</strong>
-  with no cascade structure. So the forged residual stream carries no real
-  signal from the SM dynamics &mdash; faithfulness numbers reported today
-  reflect "did the random projection happen to produce features whose
-  max-over-residual AUC against the GT labels is high", not "did the
-  forge preserve cascade structure". The numbers landing within ~2% of
-  the uncompressed-SAE baseline are a wiring sanity check, not a
-  scientific result. To get meaningful per-feature faithfulness, the
-  next piece is a <strong>cascade-host shim</strong>: a small transformer
-  trained on cascade transitions, so its weights actually encode the
-  decay dynamics the SAE was trained to find. That's the follow-up.</p>
+  <h4>The host slot: cascade-host shim is wired and opt-in</h4>
+  <p>sae-forge's <code>run_synthetic</code> path projects a host
+  transformer's weights into the feature basis. sm-sae ships
+  <code>scripts/train_cascade_host.py</code>, which trains a tiny
+  GPT-2 on next-state cascade transitions and saves the checkpoint
+  under <code>runs/cascade_host/&lt;n_embd&gt;/host/</code>. The forge
+  pipeline picks it up automatically (load-then-fallback), and the
+  <em>host</em> column in the runs table renders 🎓 for trained, 🎲
+  for the random-init fallback. The snapshot above has 6/9 rows
+  trained (embedded + cascade feeds, where the shim's
+  <code>n_embd</code> matches the SAE's <code>input_dim</code>); the
+  3 raw rows stay 🎲 because raw SAEs are 9-dimensional and the
+  cascade-transition vocabulary doesn't compress meaningfully into 9
+  hidden dims. Trained-vs-random faithfulness deltas on the 6 🎓
+  cells land at +0.001 to +0.036 &mdash; positive and directionally
+  consistent, but below the &ge; 0.05 gate originally proposed for
+  the cascade-host shim even at the post-W_enc-fix 12-cluster width.
+  The remaining gap is most plausibly the cascade-host's training
+  objective: pure next-state token prediction doesn't <em>demand</em>
+  that conservation / lineage information land in the residual stream
+  (see <a href="https://github.com/jascal/econ-sae" target="_blank"
+  rel="noopener">econ-sae</a>'s Phase 5+ findings for the same
+  lesson in the macro domain). An auxiliary-supervision head on the
+  cascade host is the natural follow-up.</p>
 
   <h4>Would the wider loops compensate for polygram weakness?</h4>
   <p>Two cases to keep apart:</p>
@@ -650,18 +658,20 @@ function, frozen at "ready to use" time.</p>
     <li><strong>Over-compression.</strong> If polygram drops features
         that carry signal, sae-forge's <em>basis</em> loop (compress
         &harr; regrow) is designed to bring them back. This is a real
-        mitigation, and worth measuring once the adapter exists.</li>
+        mitigation, untested on this fixture today.</li>
     <li><strong>Missing structure.</strong> If polygram's encoding cannot
         <em>express</em> a needed factorization (the original
         MPSRung1+phase-only failure mode), no amount of regrow helps:
         you cannot regrow something polygram never had a way to find.
         The right answer there is to fix the encoding upstream &mdash;
-        which is exactly what the Rung3 result above demonstrates.</li>
+        which is what the current Rung5 default delivers, with cap=128
+        matching the cascade SAE's full feature count.</li>
   </ul>
   <p>So the conceptual answer to <em>"can sae-forge's wider loops
   compensate?"</em> is: <strong>yes for one failure mode, no for the
-  other</strong>. sm-sae's hardest current gap is the second kind, and it
-  is fixed at the polygram layer rather than the forge layer.</p>
+  other</strong>. The current encoding default removes the second class
+  of gap for this fixture; the first class is the natural next thing
+  to measure but isn't a sm-sae-side blocker.</p>
 
   <h4>Where the remaining gaps come from, by layer</h4>
   <table class="summary">
@@ -673,39 +683,49 @@ function, frozen at "ready to use" time.</p>
     <tr><td>SAE coverage (Axis B)</td>
         <td><strong>~63% of GT features missed on the cascade feed</strong>
             (best variant: JumpReLU at 37% coverage at AUC ≥ 0.95)</td>
-        <td>this is the main open gap. Try gated SAEs, top-k with auxiliary
-            loss, richer cascade distributions, hierarchical / feature-splitting
-            SAEs</td></tr>
+        <td>still the main open gap. The
+            <a href="https://github.com/jascal/econ-sae" target="_blank"
+            rel="noopener">econ-sae</a> result that "substrate richness
+            beats SAE tuning" suggests the load-bearing knob is the
+            substrate (the cascade itself and its encoded
+            representation), not the SAE architecture.</td></tr>
     <tr><td>polygram compression (Axis C)</td>
-        <td>baseline encoding fails 4/4; <code>Rung3</code> with amplitude
-            knobs passes 4/4</td>
-        <td>solved at the configuration level for the worked pairs.
-            <code>Rung4</code> / <code>Rung5</code> add slack for richer
-            distributions</td></tr>
-    <tr><td>sae-forge (downstream of C)</td>
-        <td>untested on this fixture &mdash; needs the adapter described
-            above</td>
-        <td>build the adapter; then the <em>basis</em> regrow loop becomes
-            the mechanism for compensating polygram over-compression
-            specifically</td></tr>
+        <td>resolved at default settings &mdash; Rung5 with
+            <code>n_amp_qubits=4</code> passes the cascade SAE's full
+            128 features through to the Compressor end-to-end (PR #5)</td>
+        <td>fine as-is. The earlier
+            <code>cap &gt; sae.input_dim</code> IndexError that
+            masqueraded as over-consolidation was sm-sae writing W_enc
+            with the wrong axis order; polygram's contract was correct
+            all along.</td></tr>
+    <tr><td>sae-forge faithfulness (downstream of C)</td>
+        <td>9/9 cells produce a faithfulness number; 6/9 use a
+            cascade-trained host. Trained-vs-random delta is positive
+            but below the &ge; 0.05 gate originally proposed.</td>
+        <td>the natural next experiment is supervising the cascade
+            host on conservation / lineage labels (the econ-sae
+            Phase 5+ recipe transposed). Separately, sae-forge's
+            basis-regrow loop on intentionally over-compressed configs
+            is the unstarted "earn the wider loops" experiment.</td></tr>
   </table>
-  <p class="aside">Honest read: with Rung3 in place, the polygram layer
-  is no longer the bottleneck. Axis B is. The most informative future
-  experiment is to evaluate sae-forge's regrow loop on a config where
-  polygram intentionally over-compresses &mdash; that is the setting
-  where its wider loops are designed to earn their keep.</p>
+  <p class="aside">Honest read: with the W_enc fix and the
+  cascade-host shim both shipped, the wiring and architecture are no
+  longer the bottleneck. The unresolved question is whether the host's
+  training objective <em>demands</em> the cascade structure cleanly enough
+  for the SAE to see it post-projection &mdash; an objective-side
+  question, not an architecture-side one.</p>
 
 
   
   <h3>Forge pipeline runs</h3>
-  <p>Per-SAE runs of the end-to-end pipeline. Stages 1&ndash;6 (SAE →
-  polygram Dictionary → ValidationReport → Compressor → compressed
-  safetensors) are wired up; stage 7 (sae-forge) is intentionally stubbed
-  pending the upstream pluggable-<code>Faithfulness</code> release. The
-  <em>baseline</em> column reports the raw SAE's coverage at AUC ≥ 0.95
-  &mdash; this is the number the forged model has to beat (or at least
-  match) for the forge to be worth doing on this fixture.</p>
-  <table class="summary"><thead><tr><th>run</th><th>encoding</th><th>selection</th><th>host</th><th>dict features</th><th>compress</th><th>baseline cov≥0.95</th><th>forge score</th><th>forge stage</th></tr></thead><tbody><tr><td><code>cascade__jumprelu</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=2.076)</td><td>128</td><td>clusters 12, kept 12, zeroed 84</td><td>37.2%</td><td>0.734</td><td><span class='aside'>ok</span></td></tr><tr><td><code>cascade__l1</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=2.076)</td><td>128</td><td>clusters 12, kept 12, zeroed 48</td><td>28.9%</td><td>0.697</td><td><span class='aside'>ok</span></td></tr><tr><td><code>cascade__topk</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=2.076)</td><td>128</td><td>clusters 5, kept 5, zeroed 5</td><td>20.7%</td><td>0.748</td><td><span class='aside'>ok</span></td></tr><tr><td><code>embedded__jumprelu</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=1.768)</td><td>64</td><td>clusters 9, kept 9, zeroed 13</td><td>69.1%</td><td>0.849</td><td><span class='aside'>ok</span></td></tr><tr><td><code>embedded__l1</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=1.768)</td><td>64</td><td>clusters 5, kept 5, zeroed 5</td><td>71.8%</td><td>0.874</td><td><span class='aside'>ok</span></td></tr><tr><td><code>embedded__topk</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=1.768)</td><td>64</td><td>clusters 4, kept 4, zeroed 4</td><td>70.0%</td><td>0.874</td><td><span class='aside'>ok</span></td></tr><tr><td><code>raw__jumprelu</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td><em>🎲 random</em></td><td>32</td><td>clusters 4, kept 4, zeroed 5</td><td>47.3%</td><td>0.819</td><td><span class='aside'>ok</span></td></tr><tr><td><code>raw__l1</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td><em>🎲 random</em></td><td>32</td><td>clusters 5, kept 5, zeroed 7</td><td>56.4%</td><td>0.841</td><td><span class='aside'>ok</span></td></tr><tr><td><code>raw__topk</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td><em>🎲 random</em></td><td>32</td><td>clusters 2, kept 2, zeroed 3</td><td>56.4%</td><td>0.833</td><td><span class='aside'>ok</span></td></tr></tbody></table>
+  <p>Per-SAE runs of the end-to-end pipeline. All 9 stages are wired
+  end-to-end: SAE → polygram Dictionary → ValidationReport → Compressor
+  → compressed safetensors → sae-forge <code>run_synthetic</code> with
+  the bundled <code>GroundTruthTarget</code> as the faithfulness
+  scorer. The <em>baseline</em> column reports the raw SAE's coverage
+  at AUC ≥ 0.95 &mdash; the number the forged model has to beat (or
+  at least match) for the forge to be worth doing on this fixture.</p>
+  <table class="summary"><thead><tr><th>run</th><th>encoding</th><th>selection</th><th>host</th><th>dict features</th><th>compress</th><th>baseline cov≥0.95</th><th>forge score</th><th>forge stage</th></tr></thead><tbody><tr><td><code>cascade__jumprelu</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=1.778)</td><td>128</td><td>clusters 12, kept 12, zeroed 84</td><td>37.2%</td><td>0.726</td><td><span class='aside'>ok</span></td></tr><tr><td><code>cascade__l1</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=1.778)</td><td>128</td><td>clusters 12, kept 12, zeroed 48</td><td>28.9%</td><td>0.733</td><td><span class='aside'>ok</span></td></tr><tr><td><code>cascade__topk</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=1.778)</td><td>128</td><td>clusters 5, kept 5, zeroed 5</td><td>20.7%</td><td>0.746</td><td><span class='aside'>ok</span></td></tr><tr><td><code>embedded__jumprelu</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=1.768)</td><td>64</td><td>clusters 9, kept 9, zeroed 13</td><td>69.1%</td><td>0.882</td><td><span class='aside'>ok</span></td></tr><tr><td><code>embedded__l1</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=1.768)</td><td>64</td><td>clusters 5, kept 5, zeroed 5</td><td>71.8%</td><td>0.876</td><td><span class='aside'>ok</span></td></tr><tr><td><code>embedded__topk</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td>🎓 trained (loss=1.768)</td><td>64</td><td>clusters 4, kept 4, zeroed 4</td><td>70.0%</td><td>0.889</td><td><span class='aside'>ok</span></td></tr><tr><td><code>raw__jumprelu</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td><em>🎲 random</em></td><td>32</td><td>clusters 4, kept 4, zeroed 5</td><td>47.3%</td><td>0.841</td><td><span class='aside'>ok</span></td></tr><tr><td><code>raw__l1</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td><em>🎲 random</em></td><td>32</td><td>clusters 5, kept 5, zeroed 7</td><td>56.4%</td><td>0.847</td><td><span class='aside'>ok</span></td></tr><tr><td><code>raw__topk</code></td><td><code>rung5</code></td><td><code>firing_rate</code></td><td><em>🎲 random</em></td><td>32</td><td>clusters 2, kept 2, zeroed 3</td><td>56.4%</td><td>0.842</td><td><span class='aside'>ok</span></td></tr></tbody></table>
   <p class="aside"><strong>Reading the <em>host</em> column.</strong>
   sae-forge's <code>ForgePipeline.run_synthetic</code> projects a host
   transformer's weights into the polygram feature basis. With a
@@ -721,19 +741,23 @@ function, frozen at "ready to use" time.</p>
   🎲 are wiring sanity checks, not scientific claims; only 🎓 rows
   belong in Axis-C comparisons.</p>
   <p class="aside"><strong>Reading the <em>selection</em> column.</strong>
-  The polygram encoding caps the Dictionary at a small number of features
-  (Rung3 → 16, MPSRung1 → 8). When the SAE has more features than the cap
-  &mdash; which it always does on this fixture &mdash; we have to pick a
-  subset. <code>head</code> is the legacy behaviour: take the first
-  <em>N</em> features by ID, which is arbitrary because SAE feature IDs
-  reflect training-time allocation order, not utility. <code>firing_rate</code>
-  keeps the features that actually fire on the feed; <code>gt_alignment</code>
-  keeps the features most discriminative against GT labels. The selection
-  choice can move downstream Compressor cluster counts by 2&ndash;3&times;
-  on the same SAE: <code>head</code> on <code>cascade__jumprelu</code>
-  yields 1 cluster, <code>firing_rate</code> yields 3, because the
-  arbitrary slice through 128 features happens to miss most of the
-  confirmed pairs the ValidationReport identified.</p>
+  The polygram encoding caps the Dictionary at a number of features
+  determined by its rung and amplitude-qubit count (the current default
+  Rung5 with <code>n_amp_qubits=4</code> caps at 128, matching the
+  cascade SAE's full width; earlier defaults capped lower). When the SAE
+  has more features than the cap, we pick a subset. <code>head</code>
+  is the legacy behaviour: take the first <em>N</em> features by ID,
+  which is arbitrary because SAE feature IDs reflect training-time
+  allocation order, not utility. <code>firing_rate</code> (the current
+  default) keeps the features that actually fire on the feed;
+  <code>gt_alignment</code> keeps the features most discriminative
+  against GT labels. Selection moves downstream Compressor cluster
+  counts non-trivially: on <code>cascade__jumprelu</code> at the
+  current Rung5/cap=128 default,
+  <code>firing_rate</code> yields 12 clusters; under the legacy
+  rung3/<code>head</code> setting that combination produced only 1
+  cluster because the arbitrary slice through 128 features happened to
+  miss most of the confirmed pairs the ValidationReport identified.</p>
   <p class="aside">To populate this table, run
   <code>python scripts/forge_pipeline.py &lt;feed&gt;__&lt;variant&gt;
   [--select-by firing_rate|gt_alignment|head]</code>. The pipeline writes
@@ -762,16 +786,17 @@ function, frozen at "ready to use" time.</p>
   <table class='summary defaults'><thead><tr><th>parameter</th><th>location</th><th>upstream default</th><th>sm-sae recommendation</th><th>evidence</th><th></th></tr></thead><tbody><tr><td>encoding</td><td><code>Dictionary(encoding=...)</code></td><td><em>(must specify)</em></td><td><strong><code>Rung3(bond_dim=2)  (pending sweep)</code></strong></td><td>Rung3 passes 4/4; MPSRung1+phase-only passes 0/4. The polygram docstring predicts this; the sweep confirms.</td><td><span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span></td></tr><tr><td>Cancellation(encoding=...)</td><td><code>polygram.Cancellation</code></td><td><code>None</code> (= phase-only 2-knob)</td><td><strong><code>"rung3"</code></strong></td><td>Selects the 4-knob default list <code>[a.phi, b.phi, b.theta_amp, b.psi_aux]</code> which unlocks the amplitude branch.</td><td><span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span></td></tr><tr><td>optimize.method</td><td><code>Cancellation(optimize={...})</code></td><td><code>"grid"</code></td><td><strong><code>"grid"</code> for ≤4 knobs; <code>"scipy"</code> for >4</strong></td><td><code>GRID_KNOB_LIMIT = 4</code> in polygram; Rung4/Rung5 (6+ knobs) require <code>scipy.optimize.differential_evolution</code>. <code>scipy</code> is in <code>polygram[opt]</code>.</td><td><span style='color:#2a6;font-weight:bold;font-size:10px;text-transform:uppercase'>measured</span></td></tr><tr><td>assign_amp_knobs</td><td><code>SAEImportConfig</code> / <code>from_sae_lens(...)</code></td><td><code>False</code></td><td><strong><code>True</code> (for ground-truth-rich fixtures)</strong></td><td>Polygram defaults to neither amp nor phase knobs when ingesting an SAE. Without amp knobs, the cancellation step is stuck at the structural floor (see Axis C baseline). For any benchmark that measures structured-feature recovery, this should be flipped.</td><td><span style='color:#2a6;font-weight:bold;font-size:10px;text-transform:uppercase'>measured</span></td></tr><tr><td>assign_phase_knobs</td><td><code>SAEImportConfig</code></td><td><code>False</code></td><td><strong><code>True</code></strong></td><td>Required to populate the <code>.phi</code> entries the 4-knob Rung3 search expects.</td><td><span style='color:#2a6;font-weight:bold;font-size:10px;text-transform:uppercase'>measured</span></td></tr><tr><td>tolerance</td><td><code>CancellationConfig</code></td><td><code>0.05</code></td><td><strong><code>0.05</code> (no reason to change)</strong></td><td>All Rung3 passes met this comfortably — every Δ landed at exactly 0.0, well inside tolerance.</td><td><span style='color:#557;font-weight:bold;font-size:10px;text-transform:uppercase'>inherited</span></td></tr><tr><td>preserve_tiers</td><td><code>CancellationConfig</code></td><td><code>True</code></td><td><strong><code>True</code></strong></td><td>Cluster hierarchy is what makes the SAE features physically interpretable; default behaviour preserves it through cancellation without harming the score.</td><td><span style='color:#557;font-weight:bold;font-size:10px;text-transform:uppercase'>inherited</span></td></tr><tr><td>strategy</td><td><code>CompressionConfig</code></td><td><code>"merge"</code></td><td><strong><code>"merge"</code></strong></td><td>Not directly tested by the sweep (Compressor adapter not yet built); the default is the only path with end-to-end sae-forge support per its README.</td><td><span style='color:#557;font-weight:bold;font-size:10px;text-transform:uppercase'>inherited</span></td></tr><tr><td>rep_selection</td><td><code>CompressionConfig</code></td><td><code>"scale_aware"</code></td><td><strong><code>"scale_aware"</code></strong></td><td>sae-forge's <code>FeatureBasis</code> depends on the scale-aware merge to preserve decoder magnitudes (see sae-forge README, "forge-feature-scales").</td><td><span style='color:#557;font-weight:bold;font-size:10px;text-transform:uppercase'>inherited</span></td></tr><tr><td>n_clusters</td><td><code>SAEImportConfig</code></td><td><code>2</code></td><td><strong>match the fixture's known cluster count</strong></td><td>For sm-sae's 8-particle slice, the right value is 4 (charged_lepton / up_quark / down_quark / boson). For general fixtures, this should track the number of natural clusters in the GT label set.</td><td><span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span></td></tr></tbody></table>
 
   <h4>sae-forge</h4>
-  <p class='aside'>sae-forge v0.4.0 shipped the
-  <code>FaithfulnessTarget</code> protocol; <code>GroundTruthAlignment</code>
-  is implemented on our side. The pipeline runs end-to-end against this
-  fixture today &mdash; faithfulness numbers in the
-  <a href="#benchmark">Forge pipeline runs</a> table. Recommendations
-  below are upgraded from <span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span> to <span style='color:#2a6;font-weight:bold;font-size:10px;text-transform:uppercase'>measured</span>
-  where the wiring path actually executed; entries that need the
-  cascade-host shim to be meaningful remain <span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span> with
-  a note.</p>
-  <table class='summary defaults'><thead><tr><th>parameter</th><th>location</th><th>upstream default</th><th>sm-sae recommendation</th><th>evidence</th><th></th></tr></thead><tbody><tr><td><code>faithfulness</code></td><td><code>ForgePipeline.__init__</code></td><td><code>None</code> (defaults to per-token KL vs host)</td><td><strong><code>KLTarget()</code> for LLMs; <code>GroundTruthAlignment(labels=Y)</code> for label-rich fixtures (sm-sae, mixture-of-gaussians, etc.) &mdash; implement on the caller side satisfying the v0.4 <code>saeforge.eval.FaithfulnessTarget</code> protocol.</strong></td><td>Wired end-to-end as of sae-forge v0.4.0; <code>scripts/forge_pipeline.py</code>'s <code>GroundTruthAlignment</code> reads input_ids from ctx, runs them through the forged model, mean-pools the residual stream, and scores AUC against sm-sae GT labels. Hard-coded KL would compare the forged model to its random-init host, not to the physical labels we care about.</td><td><span style='color:#2a6;font-weight:bold;font-size:10px;text-transform:uppercase'>measured</span></td></tr><tr><td><code>strategy</code></td><td><code>Regrower.__init__</code></td><td><code>"protected"</code></td><td><strong><code>"protected"</code></strong></td><td>Protects features above a configured threshold from being dropped during compress; this is the structural-EWC behaviour the basis loop is built around (see <code>docs/advanced-fsm-options.md</code>).</td><td><span style='color:#557;font-weight:bold;font-size:10px;text-transform:uppercase'>inherited</span></td></tr><tr><td><code>n_init</code></td><td><code>Regrower.__init__</code></td><td><code>4</code></td><td><strong><code>4</code> for small fixtures; <code>8+</code> at LLM scale</strong></td><td>The basis loop's regrow re-tries this many initializations. Default suffices for sm-sae sized inputs; larger initial counts matter more when the SAE has thousands of features.</td><td><span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span></td></tr><tr><td><code>polygram_overlap_threshold</code></td><td><code>BehaviouralValidator</code> / <code>EpochCompressor</code></td><td><code>0.7</code></td><td><strong><code>0.7</code></strong></td><td>Default validator threshold for behavioural equivalence; sae-forge ships this as a sensible single-shard default.</td><td><span style='color:#557;font-weight:bold;font-size:10px;text-transform:uppercase'>inherited</span></td></tr><tr><td><code>cosine_threshold</code></td><td><code>EpochCompressor</code></td><td><code>None</code> (off)</td><td><strong><code>None</code> for sm-sae-sized SAEs; <code>0.85+</code> for LLM-scale</strong></td><td>Adds a cosine-similarity criterion to per-feature inclusion. For a 128-feature SAE the extra signal is small; for tens of thousands of features it becomes load-bearing.</td><td><span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span></td></tr><tr><td><code>save_intermediate_reports</code></td><td><code>EpochCompressor</code></td><td><code>False</code></td><td><strong><code>True</code> for benchmark runs</strong></td><td>Lets the basis loop's per-iteration scoreboard be inspected, which is exactly what a benchmark wants.</td><td><span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span></td></tr></tbody></table>
+  <p class='aside'>sae-forge v0.5.1 ships the
+  <code>FaithfulnessTarget</code> protocol (v0.4), the bundled
+  <code>GroundTruthTarget</code> (v0.5.0), and the
+  <code>WorldModel</code> protocol (v0.5.1). The pipeline runs
+  end-to-end against this fixture today &mdash; faithfulness numbers
+  in the <a href="#benchmark">Forge pipeline runs</a> table.
+  Recommendations below are upgraded from <span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span> to
+  <span style='color:#2a6;font-weight:bold;font-size:10px;text-transform:uppercase'>measured</span> where the wiring path actually executed;
+  entries gated on auxiliary cascade-host supervision (next-step
+  follow-up) remain <span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span> with a note.</p>
+  <table class='summary defaults'><thead><tr><th>parameter</th><th>location</th><th>upstream default</th><th>sm-sae recommendation</th><th>evidence</th><th></th></tr></thead><tbody><tr><td><code>faithfulness</code></td><td><code>ForgePipeline.__init__</code></td><td><code>None</code> (defaults to per-token KL vs host)</td><td><strong><code>KLTarget()</code> for LLMs; <code>GroundTruthTarget(labels=Y)</code> for label-rich fixtures (sm-sae, mixture-of-gaussians, etc.). Bundled in <code>saeforge.eval.targets</code> as of v0.5.0.</strong></td><td>Wired end-to-end as of sae-forge v0.5.1; <code>scripts/forge_pipeline.py</code> uses the bundled <code>GroundTruthTarget</code> against the sm-sae GT label matrix. Hard-coded KL would compare the forged model to its host (random-init or cascade-trained, see <em>host</em> column), not to the physical labels we care about.</td><td><span style='color:#2a6;font-weight:bold;font-size:10px;text-transform:uppercase'>measured</span></td></tr><tr><td><code>strategy</code></td><td><code>Regrower.__init__</code></td><td><code>"protected"</code></td><td><strong><code>"protected"</code></strong></td><td>Protects features above a configured threshold from being dropped during compress; this is the structural-EWC behaviour the basis loop is built around (see <code>docs/advanced-fsm-options.md</code>).</td><td><span style='color:#557;font-weight:bold;font-size:10px;text-transform:uppercase'>inherited</span></td></tr><tr><td><code>n_init</code></td><td><code>Regrower.__init__</code></td><td><code>4</code></td><td><strong><code>4</code> for small fixtures; <code>8+</code> at LLM scale</strong></td><td>The basis loop's regrow re-tries this many initializations. Default suffices for sm-sae sized inputs; larger initial counts matter more when the SAE has thousands of features.</td><td><span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span></td></tr><tr><td><code>polygram_overlap_threshold</code></td><td><code>BehaviouralValidator</code> / <code>EpochCompressor</code></td><td><code>0.7</code></td><td><strong><code>0.7</code></strong></td><td>Default validator threshold for behavioural equivalence; sae-forge ships this as a sensible single-shard default.</td><td><span style='color:#557;font-weight:bold;font-size:10px;text-transform:uppercase'>inherited</span></td></tr><tr><td><code>cosine_threshold</code></td><td><code>EpochCompressor</code></td><td><code>None</code> (off)</td><td><strong><code>None</code> for sm-sae-sized SAEs; <code>0.85+</code> for LLM-scale</strong></td><td>Adds a cosine-similarity criterion to per-feature inclusion. For a 128-feature SAE the extra signal is small; for tens of thousands of features it becomes load-bearing.</td><td><span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span></td></tr><tr><td><code>save_intermediate_reports</code></td><td><code>EpochCompressor</code></td><td><code>False</code></td><td><strong><code>True</code> for benchmark runs</strong></td><td>Lets the basis loop's per-iteration scoreboard be inspected, which is exactly what a benchmark wants.</td><td><span style='color:#b80;font-weight:bold;font-size:10px;text-transform:uppercase'>provisional</span></td></tr></tbody></table>
 
   <p class='aside'>The Rung3 sweep has not finished yet, so a couple of the polygram recommendations are tagged <em>provisional</em>. They will be re-tagged <em>measured</em> after the next rebuild once <code>sweep_results.json</code> shows Rung3 at 4/4.</p>
 

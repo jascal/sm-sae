@@ -409,63 +409,16 @@ def compress(vreport, sae_safetensors_path: str, out_path: str,
 
 
 # ---------------------------------------------------------------------------
-# Stage 7: forge into a small transformer (sae-forge >= 0.4 with pluggable
-# Faithfulness)
-# ---------------------------------------------------------------------------
-class GroundTruthAlignment:
-    """FaithfulnessTarget that scores forged-model residual activations vs
-    sm-sae ground-truth labels via AUC. Conforms to
-    saeforge.eval.FaithfulnessTarget (Protocol).
-
-    Holds the GT label matrix internally; reads sample input_ids from
-    ctx['_eval_input_ids']. Returns (mean_best_auc, 1 - mean_best_auc) so
-    that with better_when='higher' the perplexity-analog the FSM consumes
-    is a positive-real *decreasing* function of the score, per the protocol
-    contract.
-    """
-    name = "gt_alignment"
-    better_when = "higher"
-
-    def __init__(self, labels: np.ndarray, layer: int = -1):
-        self.labels = labels.astype(np.float32)
-        self.layer = layer
-
-    def score(self, *, forged, host, ctx):
-        input_ids = ctx.get("_eval_input_ids")
-        if input_ids is None:
-            raise KeyError(
-                "GroundTruthAlignment.score requires ctx['_eval_input_ids']; "
-                "pass eval_input_ids= to ForgePipeline.run_synthetic().")
-        device = ctx.get("device", "cpu")
-        torch_mod = forged.torch_module.to(device).eval()
-        with torch.no_grad():
-            # sae-forge's ForgedGPT2.transformer(ids) returns the residual
-            # stream directly as a Tensor of shape (batch, seq, n_features).
-            # That's exactly what we want — the residual width equals the
-            # SAE's kept-feature count, so each coordinate is a feature.
-            if hasattr(torch_mod, "transformer"):
-                hidden = torch_mod.transformer(input_ids.to(device))
-                if not isinstance(hidden, torch.Tensor):
-                    # HuggingFace-shaped return (older code paths)
-                    hidden = (hidden.last_hidden_state
-                              if hasattr(hidden, "last_hidden_state")
-                              else hidden[0])
-            else:
-                # No transformer attribute — fall back to logits and warn
-                hidden = torch_mod(input_ids.to(device))
-        # Mean-pool over the sequence dim: (N, T, F) -> (N, F)
-        feats = hidden.mean(dim=1).cpu().numpy().astype(np.float32)
-        # AUC of each feature vs each GT label
-        from smsae.sae.evaluation import auc_matrix
-        # Trim labels to match the number of samples we actually have
-        N = min(feats.shape[0], self.labels.shape[0])
-        A = auc_matrix(feats[:N], self.labels[:N])
-        best_per_label = A.max(axis=0) if A.size else np.zeros(self.labels.shape[1])
-        mean_best = float(best_per_label.mean())
-        # better_when='higher' → perplexity-analog must be decreasing; the
-        # canonical 1 - score (clamped) is fine here.
-        perplexity_analog = max(1.0 - mean_best, 1e-6)
-        return mean_best, perplexity_analog
+# Stage 7: forge into a small transformer (sae-forge >= 0.5.0 with the
+# bundled GroundTruthTarget). Prior versions of this file carried an
+# in-tree GroundTruthAlignment class that conformed to the same
+# FaithfulnessTarget protocol. sae-forge 0.5.0 ships GroundTruthTarget
+# upstream with the same semantics (read ctx['_eval_input_ids'], mean-pool
+# residual stream, per-feature × per-label AUC, return mean-best-AUC),
+# so the local copy was deleted in favour of the bundled implementation.
+# Shape contract: GroundTruthTarget requires labels.shape[0] ==
+# input_ids.shape[0]; the sm-sae feeds satisfy this by construction
+# (one label row per feed sample, one input row per feed sample).
 
 
 def _build_synthetic_host(input_dim: int, vocab_size: int = 64,
@@ -478,7 +431,7 @@ def _build_synthetic_host(input_dim: int, vocab_size: int = 64,
     UserWarning and falls back to a random-init tiny GPT-2.
 
     With a trained host the forged model's residuals carry real cascade
-    signal and GroundTruthAlignment scores are interpretable. With the
+    signal and GroundTruthTarget scores are interpretable. With the
     random-init fallback they reflect projection noise; the warning
     points users at scripts/train_cascade_host.py.
     """
@@ -574,9 +527,10 @@ def _encode_feed_as_input_ids(feed, vocab_size: int = 64,
 
 
 def forge(compressed_path: str, sae, feed, run_dir: str) -> dict:
-    """Stage 7: actually run sae-forge's ForgePipeline.run_synthetic with our
-    GroundTruthAlignment target."""
+    """Stage 7: actually run sae-forge's ForgePipeline.run_synthetic with
+    the bundled GroundTruthTarget."""
     from saeforge import FeatureBasis, SubspaceProjector, ForgePipeline
+    from saeforge.eval.targets import GroundTruthTarget
     from smsae.sae.evaluation import build_gt_matrix
 
     basis = FeatureBasis.from_polygram_checkpoint(compressed_path)
@@ -590,7 +544,7 @@ def forge(compressed_path: str, sae, feed, run_dir: str) -> dict:
     host, host_info = _build_synthetic_host(input_dim=sae.input_dim)
     input_ids = _encode_feed_as_input_ids(feed)
     Y = build_gt_matrix(feed)
-    target = GroundTruthAlignment(labels=Y)
+    target = GroundTruthTarget(labels=Y)
 
     pipeline = ForgePipeline(
         basis=basis,
@@ -751,9 +705,10 @@ def main():
         comp_summary = {"error": f"{type(e).__name__}: {e}"}
         print(f"      Compressor failed: {comp_summary['error']}")
 
-    # Stage 7 — real sae-forge call (>= 0.4)
+    # Stage 7 — real sae-forge call (>= 0.5.0 for GroundTruthTarget,
+    # >= 0.5.1 for the WorldModel protocol)
     print(f"  [7] sae-forge ForgePipeline.run_synthetic with "
-          f"GroundTruthAlignment")
+          f"GroundTruthTarget")
     forge_summary = forge(compressed_path, sae, feed, run_dir)
     if forge_summary.get("status") == "ok":
         print(f"      faithfulness={forge_summary['faithfulness']:.4f} "
