@@ -1,5 +1,23 @@
 # diagnose-compressor-over-consolidation
 
+> **Resolution (2026-05-18, archived):** Closed-as-not-the-bug-we-thought
+> by [sm-sae PR #5](https://github.com/jascal/sm-sae/pull/5). The
+> over-consolidation was not a polygram Compressor tuning issue
+> (Hypothesis A) nor a degenerate-vreport issue from
+> `kl_ablate_*=0.0` (Hypothesis B). Root cause: sm-sae's
+> `convert_to_safetensors` was writing W_enc with shape
+> `(n_features, input_dim)` while polygram documents the canonical
+> layout as `(input_dim, n_features)` (see
+> `polygram/behavioural/validator.py:311`). With the axes swapped,
+> polygram's `apply_merge` zeroed the wrong tensor slice, which
+> silently worked while `n_features <= input_dim` and merged
+> over-aggressively (or raised `IndexError`) once the SAE was
+> overcomplete. PR #5 fixed the W_enc transpose on write and the
+> cluster count on `cascade__jumprelu` jumped from 1 to 12 with no
+> Compressor-side changes. The sweep machinery this proposal
+> scoped was therefore never built; if a future regression looks
+> like over-consolidation, re-open this with the actual diagnosis.
+
 ## Why
 
 After [[principled-feature-selection-at-encoding-cap]] landed, the

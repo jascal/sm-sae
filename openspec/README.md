@@ -41,9 +41,14 @@ Once a change lands and stabilises, move its directory under
 
 | change | status | priority |
 |---|---|---|
-| [add-cascade-host-shim](changes/add-cascade-host-shim/) | proposed | P0 |
-| [sae-forge-world-model-adapter](changes/sae-forge-world-model-adapter/) | proposed (upstream ask of sae-forge; retires the shim) | P1 |
-| [principled-feature-selection-at-encoding-cap](changes/principled-feature-selection-at-encoding-cap/) | in progress (gate 8.4 missed; see follow-up) | P1 |
-| [diagnose-compressor-over-consolidation](changes/diagnose-compressor-over-consolidation/) | proposed (follow-up to selection) | P1 |
 | [per-encoding-scoreboard-axes-a-b](changes/per-encoding-scoreboard-axes-a-b/) | proposed | P1 |
 | [auto-tune-subspace-projector-scale-boost](changes/auto-tune-subspace-projector-scale-boost/) | proposed | P2 |
+
+## Archived
+
+| change | landed via | note |
+|---|---|---|
+| [add-cascade-host-shim](changes/archive/add-cascade-host-shim/) | sm-sae PR #3 | gate 7.3 (≥0.05 trained-vs-random delta) was missed; arguably superseded by the sae-forge world-model-protocol upstream landing |
+| [principled-feature-selection-at-encoding-cap](changes/archive/principled-feature-selection-at-encoding-cap/) | sm-sae PR #1 | gate 8.4 (≥4 clusters on cascade__jumprelu) was met later — sm-sae PR #5's W_enc fix took clusters to 12 |
+| [diagnose-compressor-over-consolidation](changes/archive/diagnose-compressor-over-consolidation/) | resolved-not-implemented by sm-sae PR #5 | root cause was sm-sae sending wrong-shape W_enc to polygram, not a polygram tuning issue; see the resolution note in proposal.md |
+| [sae-forge-world-model-adapter](changes/archive/sae-forge-world-model-adapter/) | sae-forge PR #55 | implementation landed upstream; sm-sae pins saeforge for the new seam. A separate `retire-cascade-host-shim` follow-up is needed before the shim can actually be deleted (the merged upstream spec was protocol-only; concrete non-transformer adapter support is deferred). |
