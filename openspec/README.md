@@ -42,6 +42,7 @@ Once a change lands and stabilises, move its directory under
 | change | status | priority |
 |---|---|---|
 | [add-cascade-host-shim](changes/add-cascade-host-shim/) | proposed | P0 |
+| [sae-forge-world-model-adapter](changes/sae-forge-world-model-adapter/) | proposed (upstream ask of sae-forge; retires the shim) | P1 |
 | [principled-feature-selection-at-encoding-cap](changes/principled-feature-selection-at-encoding-cap/) | in progress (gate 8.4 missed; see follow-up) | P1 |
 | [diagnose-compressor-over-consolidation](changes/diagnose-compressor-over-consolidation/) | proposed (follow-up to selection) | P1 |
 | [per-encoding-scoreboard-axes-a-b](changes/per-encoding-scoreboard-axes-a-b/) | proposed | P1 |
