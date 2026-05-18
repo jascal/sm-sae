@@ -53,16 +53,22 @@ actually measuring.
 ### Upstream (sae-forge)
 
 - **New `saeforge.WorldModelAdapter` protocol** with these required methods:
-  - `extract_features(input_ids: Tensor) -> Tensor` returning
-    `(batch, seq, n_features)`. Replaces the family-adapter's
-    `model.transformer(input_ids)` hidden-state extraction.
+  - `extract_features(input_ids: Tensor, seed: int | None = None)
+    -> Tensor` returning `(batch, seq, n_features)`. Replaces the
+    family-adapter's `model.transformer(input_ids)` hidden-state
+    extraction. `seed=` is honoured by stochastic substrates; ignored
+    by deterministic ones.
   - `n_features: int` property reporting the substrate's native
     feature dimension.
   - `project_into(basis: FeatureBasis) -> WorldModelAdapter` returning
     a new adapter whose `extract_features` output is shaped to the
-    feature basis. Implementations can no-op this (substrate already
-    matches), build a transformer-shaped synthetic via the existing
-    `SubspaceProjector`, or do something substrate-specific.
+    feature basis. The contract supports three cases: substrate
+    already matches (`return self`; the no-op fast path that
+    `CascadeWorldModel` is expected to use), substrate-wider-than-basis
+    (down-project via `SubspaceProjector` or substrate-specific
+    machinery), and substrate-narrower-than-basis (MUST raise; up-
+    projection is asymmetric information loss and almost always
+    indicates a misconfigured SAE basis).
 - **`ForgePipeline.run_synthetic` accepts `world_model:
   WorldModelAdapter`** as an alternative to the current `host_model`
   argument. When both are passed, `world_model` wins. When only
@@ -130,24 +136,19 @@ change once the upstream lands. Sketch:
 
 ## Open questions
 
-These belong in `design.md` once we have more information, but
-flagging here so reviewers see them:
-
-- **GroundTruthAlignment compatibility**: the current sm-sae
-  `GroundTruthAlignment.score` reads `forged.torch_module.transformer(
-  input_ids)` to get hidden states. With a WorldModel host, that
-  attribute doesn't exist. Either (a) the FaithfulnessTarget receives
-  the WorldModelAdapter and calls `extract_features` directly, or
-  (b) the WorldModelAdapter exposes a `torch_module`-compatible
-  shim. Decision deferred until the sae-forge API shape is fixed.
+- **GroundTruthAlignment compatibility** — *recommendation
+  recorded* in design.md Decision 6: dual-signature
+  `score(features=..., forged=..., ctx=...)` over a v0.5→v0.7
+  deprecation window. Existing targets keep working; new targets
+  opt in. Pending upstream sign-off.
+- **Cascade rollout determinism** — *handled by the protocol*:
+  `extract_features(..., seed: int | None = None)` per design.md
+  Decision 5. `CascadeWorldModel` honours per-call seed; defaults
+  to constructor seed when None; never wall-clock entropy.
 - **Polygram coupling**: polygram-compressed safetensors carry
   feature-basis metadata that today drives `SubspaceProjector`. If a
   WorldModel substrate-matches the basis natively (or if projection is
   skipped), does polygram's compressed-checkpoint format change? Best
   guess: no — the WorldModelAdapter still consumes a `FeatureBasis`
   via `project_into`, and the basis carries the same metadata.
-- **Cascade rollout determinism**: `CascadeWorldModel.extract_features`
-  needs to be deterministic given an input or the faithfulness
-  numbers will be noisy across re-evals. Either fix the cascade RNG
-  per call, or take the expected-value over many rollouts. To be
-  decided in the downstream change.
+  Confirm against the polygram source during upstream review.

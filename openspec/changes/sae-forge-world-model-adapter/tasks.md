@@ -48,17 +48,18 @@
 
 ## 4. Upstream: FaithfulnessTarget compatibility
 
-- [ ] 4.1 Resolve the open question from `design.md` (Risks): does
-      `FaithfulnessTarget.score` take `features=` directly, or does
-      `WorldModelAdapter` expose a `torch_module`-compatible shim?
-      Recommendation in the design is option (a); needs upstream
-      sign-off.
-- [ ] 4.2 If (a): bump the `FaithfulnessTarget` protocol minor version
-      and document the new kwarg. If (b): document the
-      `torch_module` requirement on `WorldModelAdapter`.
+- [ ] 4.1 Implement design.md Decision 6 (dual-signature pattern):
+      `FaithfulnessTarget.score(*, forged=None, host=None, ctx=None,
+      features=None)`. sae-forge always passes both `features=` and
+      the legacy triple during the v0.5–v0.6 window; legacy triple
+      is removed in v0.7.
+- [ ] 4.2 Document the deprecation window in the v0.5 changelog with
+      an upgrade snippet (the `GroundTruthAlignment` migration
+      sketch in design.md Decision 6 is a ready-to-use example).
 - [ ] 4.3 Update the bundled targets (`KLTarget`, `CosineTarget`,
-      future `GroundTruthTarget` from the sm-sae upstream proposal)
-      to use whichever path lands.
+      and the `GroundTruthTarget` from the sm-sae upstream proposal
+      when it lands) to prefer `features=` when supplied, falling
+      back to the legacy triple otherwise.
 
 ## 5. Upstream: release
 
@@ -73,16 +74,24 @@
 
 - [ ] 6.1 New openspec change `retire-cascade-host-shim` once
       `saeforge>=0.5` is pinnable. Spec covers:
-      - Adding `smsae.world_model.CascadeWorldModel` implementing
-        `WorldModelAdapter`.
-      - Switching `scripts/forge_pipeline.py:forge` to the
-        `world_model=` entry point.
-      - Deleting `smsae/host/`, `scripts/train_cascade_host.py`, and
-        the `_build_synthetic_host` machinery (~700 LOC).
-      - Removing the `runs/cascade_host/` artifact convention.
-      - Adding a third class to the scoreboard's `host` column
-        (🌐 `world_model`); flagging archived 🎓/🎲 runs as
-        "legacy".
+      - **Add** `smsae.world_model.CascadeWorldModel` implementing
+        `WorldModelAdapter` (~120 LOC including tests).
+      - **Switch** `scripts/forge_pipeline.py:forge` to the
+        `world_model=` entry point (~30 LOC delta in `forge()`,
+        `_build_synthetic_host` is the deletion target).
+      - **Delete**: `smsae/host/__init__.py` (~17 LOC),
+        `smsae/host/tiny_gpt2.py` (~55 LOC),
+        `scripts/train_cascade_host.py` (~180 LOC),
+        `_build_synthetic_host` + helpers in `forge_pipeline.py`
+        (~85 LOC), `tests/test_tiny_gpt2.py` (~50 LOC),
+        `tests/test_cascade_transitions.py` may stay or move
+        (the cascade-transition encoders are reusable by the
+        WorldModel). Estimate: **~390 LOC deleted, ~150 added**,
+        net −240. Lower than the original "~700 LOC" forecast
+        because the cascade-transition data plumbing is salvageable.
+      - **Remove** the `runs/cascade_host/` artifact convention.
+      - **Scoreboard**: third class for the `host` column (🌐
+        `world_model`); flag archived 🎓/🎲 runs as "legacy".
 - [ ] 6.2 Acceptance gate for `retire-cascade-host-shim`: forge
       faithfulness on `cascade__jumprelu` with the WorldModel
       substrate is higher than the trained-shim baseline by ≥ 0.05
@@ -93,8 +102,11 @@
 ## 7. Cross-repo coordination
 
 - [ ] 7.1 File a sae-forge issue linking this proposal; agree on the
-      protocol shape (especially the FaithfulnessTarget question)
-      before upstream implementation begins.
+      protocol shape (especially the FaithfulnessTarget question
+      — design.md Decision 6 recommends the dual-signature
+      v0.5→v0.7 deprecation pattern) before upstream implementation
+      begins. Link the filed issue back here:
+      `_jascal/sae-forge#TBD — fill in once filed_`.
 - [ ] 7.2 Once upstream lands, update this openspec README index to
       reflect the v0.5 release and unblock the
       `retire-cascade-host-shim` follow-up.
@@ -103,8 +115,9 @@
 
 - [ ] 8.1 Proposal/design/tasks reviewed and approved.
 - [ ] 8.2 sae-forge issue filed and linked.
-- [ ] 8.3 Open question on FaithfulnessTarget compatibility (4.1) has
-      an upstream decision recorded in `design.md`.
+- [ ] 8.3 FaithfulnessTarget compatibility pattern (design.md
+      Decision 6) confirmed or revised by sae-forge maintainer in
+      the upstream issue (task 7.1).
 - [ ] 8.4 Move this change to `openspec/changes/archive/` once
       upstream v0.5 ships *or* the proposal is explicitly rejected
       (with reason recorded).

@@ -85,13 +85,31 @@ The protocol:
 class WorldModelAdapter(Protocol):
     n_features: int
 
-    def extract_features(self, input_ids: Tensor) -> Tensor:
-        """Return (batch, seq, n_features)."""
+    def extract_features(self, input_ids: Tensor,
+                         seed: int | None = None) -> Tensor:
+        """Return (batch, seq, n_features).
+
+        `seed` is honoured by stochastic substrates (e.g. cascade
+        rollouts). Deterministic substrates ignore it. When None,
+        adapters with internal RNG default to their constructor seed
+        — never to wall-clock entropy — so a re-eval at the same
+        input is reproducible.
+        """
         ...
 
     def project_into(self, basis: FeatureBasis) -> "WorldModelAdapter":
         """Return a new adapter whose output is shaped to `basis`.
-        May be a no-op for substrates that already match."""
+
+        - If `self.n_features == basis.dim`, may return `self` (no-op).
+          This is the fast path for substrates that already match.
+        - If `self.n_features > basis.dim`, project down (e.g. via
+          `SubspaceProjector` for transformer adapters).
+        - If `self.n_features < basis.dim`, the adapter MUST raise
+          rather than silently up-pad. Up-projection introduces
+          information asymmetric to down-projection and almost
+          always indicates the SAE basis is wider than the
+          substrate can faithfully represent.
+        """
         ...
 ```
 
@@ -155,7 +173,83 @@ for batch in eval_batches:
 
 No special-casing per substrate.
 
-### 5. Discriminated union in the result schema
+### 5. Stochastic substrates carry their own RNG
+
+`WorldModelAdapter.extract_features` accepts an optional `seed:
+int | None = None`. Deterministic substrates ignore it; stochastic
+ones (e.g. `CascadeWorldModel`, which calls `cascade()` under the
+hood) honour it. When `seed=None`, adapters with internal RNG
+default to their *constructor seed*, never to wall-clock entropy.
+
+Rationale:
+
+- A re-eval of the same `(adapter, input_ids)` pair must produce the
+  same features, otherwise sweep results aren't reproducible and the
+  scoreboard rows can't be re-derived from artifacts.
+- Per-call `seed=` lets the caller take multiple rollouts when
+  expected-value evaluation matters, without forcing every adapter to
+  ship its own averaging machinery.
+- Constructor-seed default keeps the common case (deterministic-feeling
+  call) trivially reproducible.
+
+Implementation sketch for `CascadeWorldModel`:
+
+```python
+class CascadeWorldModel:
+    def __init__(self, ..., seed: int = 0):
+        self._default_seed = seed
+
+    def extract_features(self, input_ids, seed=None):
+        rng = random.Random(seed if seed is not None else self._default_seed)
+        # ... run cascade rollouts using `rng` ...
+```
+
+### 6. FaithfulnessTarget signature transition: dual-signature pattern
+
+Resolves design.md Risks open-question (a), per reviewer feedback.
+
+`FaithfulnessTarget.score` gains a `features=` keyword. Existing
+targets that read `forged.torch_module.transformer(input_ids)` keep
+working unchanged; new targets can opt into the cleaner signature.
+
+```python
+class FaithfulnessTarget(Protocol):
+    name: str
+    better_when: Literal["higher", "lower"]
+
+    def score(self, *,
+              forged=None,            # legacy: ForgedModel with .torch_module
+              host=None,              # legacy: host wrapper
+              ctx=None,               # legacy: pipeline context
+              features=None,          # new: (batch, seq, n_features) Tensor
+              ) -> tuple[float, float]:
+        """Return (score, perplexity_analog).
+
+        Implementations may consume `features=` (new path) or the
+        `forged`/`host`/`ctx` triple (legacy path). sae-forge always
+        passes both during v0.5–v0.6 so existing targets keep
+        working; the legacy triple is removed in v0.7."""
+        ...
+```
+
+Migration path for sm-sae's `GroundTruthAlignment`:
+
+```python
+def score(self, *, forged=None, features=None, ctx=None, **_):
+    if features is not None:
+        feats = features.mean(dim=1).cpu().numpy()   # new path
+    else:
+        # legacy path — preserved for v0.5–v0.6 transition window
+        input_ids = ctx["_eval_input_ids"]
+        hidden = forged.torch_module.transformer(input_ids)
+        feats = hidden.mean(dim=1).cpu().numpy()
+    ...
+```
+
+A two-release deprecation window (v0.5 ships both; v0.6 warns on
+legacy; v0.7 removes) keeps the transition non-disruptive.
+
+### 7. Discriminated union in the result schema
 
 `ForgeResult.host` becomes:
 
@@ -172,28 +266,21 @@ migration is mechanical (parse the dict, switch on `family`).
 
 ## Risks
 
-- **GroundTruthAlignment compatibility** is the largest unknown.
-  sm-sae's faithfulness target reads `forged.torch_module.transformer(
-  input_ids)` to get hidden states. With a WorldModel host, that path
-  doesn't exist. Two viable resolutions:
-  - **(a)** sae-forge passes `extract_features` results directly to
-    `FaithfulnessTarget.score(features=...)`, decoupling the target
-    from the host shape. Cleaner; requires changes to the
-    `FaithfulnessTarget` protocol.
-  - **(b)** `WorldModelAdapter` exposes a `torch_module` property that
-    returns an `nn.Module` whose `forward` is `extract_features`.
-    Preserves the target signature; slightly more invasive on the
-    adapter side.
-  Recommendation: (a). Defer the decision until upstream review.
+- **GroundTruthAlignment compatibility** — resolved in Decision 6 via
+  the dual-signature `score(features=..., forged=..., ctx=...)`
+  pattern with a v0.5→v0.7 deprecation window. Existing targets keep
+  working; new targets opt into the cleaner `features=` path. Remaining
+  unknown: whether the dual-signature window length is right for
+  external sae-forge consumers we don't know about; revisit during
+  upstream review.
 
-- **WorldModel ⇄ FeatureBasis dimensional mismatch.** Today a
-  transformer host's `n_embd` is forced to equal the SAE's `input_dim`.
-  A WorldModel might have a *fixed* feature dimension that doesn't
-  match the SAE basis. `project_into` is the contract for handling
-  this, but if the substrate dimension is < basis dimension the
-  adapter has to up-project or pad, both of which lose information
-  asymmetrically vs the current down-projection case. Worth a
-  validation step + a clear error message.
+- **WorldModel ⇄ FeatureBasis dimensional mismatch** — addressed in
+  the protocol docstring (Decision 1): `project_into` MUST raise
+  rather than silently up-pad when `n_features < basis.dim`. Down-
+  projection (`>`) and no-op (`==`) cases stay implementation-defined.
+  A `validate_basis_compatibility(adapter, basis)` helper in
+  `saeforge.adapters` would catch this at pipeline-construction time
+  instead of at the first eval batch; suggested but not required.
 
 - **Coordination with sae-forge maintainer.** This is a non-trivial
   upstream change in someone else's repo (also yours, in this case —
