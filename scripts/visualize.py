@@ -1689,6 +1689,7 @@ def _format_forge_pipeline_results() -> str:
                           "run scripts/forge_pipeline.py &lt;run_id&gt;"))
 
     rows = ['<thead><tr><th>run</th><th>encoding</th><th>selection</th>'
+            '<th>host</th>'
             '<th>dict features</th><th>compress</th>'
             '<th>baseline cov≥0.95</th><th>forge score</th>'
             '<th>forge stage</th></tr></thead><tbody>']
@@ -1716,11 +1717,30 @@ def _format_forge_pipeline_results() -> str:
         fscore = r.get("forge_score")
         fscore_cell = (f"{fscore:.3f}" if isinstance(fscore, (int, float))
                        else "<em>(blocked on sae-forge release)</em>")
-        forge_status = (r.get("forge") or {}).get("status", "?")
+        forge_block = r.get("forge") or {}
+        forge_status = forge_block.get("status", "?")
+        # host info: structured dict (post-cascade-host-shim) or legacy str
+        host_block = forge_block.get("host")
+        if isinstance(host_block, dict):
+            kind = host_block.get("kind", "?")
+            if kind == "trained":
+                loss = host_block.get("train_loss_final")
+                loss_str = (f" (loss={loss:.3f})"
+                            if isinstance(loss, (int, float)) else "")
+                host_cell = f"🎓 trained{loss_str}"
+            elif kind == "random_init":
+                host_cell = "<em>🎲 random</em>"
+            else:
+                host_cell = f"<span class='aside'>{escape(str(kind))}</span>"
+        elif isinstance(host_block, str):
+            host_cell = "<em>🎲 random</em>"  # legacy free-text means random
+        else:
+            host_cell = "—"
         rows.append(
             f"<tr><td><code>{escape(run_id)}</code></td>"
             f"<td><code>{escape(enc)}</code></td>"
             f"<td><code>{escape(sel_method)}</code></td>"
+            f"<td>{host_cell}</td>"
             f"<td>{d_n}</td>"
             f"<td>{cs_cell}</td>"
             f"<td>{bcov_cell}</td>"
@@ -1739,6 +1759,20 @@ def _format_forge_pipeline_results() -> str:
   &mdash; this is the number the forged model has to beat (or at least
   match) for the forge to be worth doing on this fixture.</p>
   {table}
+  <p class="aside"><strong>Reading the <em>host</em> column.</strong>
+  sae-forge's <code>ForgePipeline.run_synthetic</code> projects a host
+  transformer's weights into the polygram feature basis. With a
+  <strong>🎓 trained</strong> host (one that has actually been trained
+  on cascade transitions via
+  <code>scripts/train_cascade_host.py --n-embd &lt;input_dim&gt;</code>),
+  the resulting forge score reflects how well the projection preserves
+  cascade structure &mdash; this is what the benchmark exists to
+  measure. With a <strong>🎲 random</strong> host (the fallback when no
+  trained host exists for the SAE's <code>input_dim</code>), the forged
+  model's residuals carry no real signal and the score reflects the
+  AUC-pooling stumbling onto coincidental correlations. Rows with
+  🎲 are wiring sanity checks, not scientific claims; only 🎓 rows
+  belong in Axis-C comparisons.</p>
   <p class="aside"><strong>Reading the <em>selection</em> column.</strong>
   The polygram encoding caps the Dictionary at a small number of features
   (Rung3 → 16, MPSRung1 → 8). When the SAE has more features than the cap
