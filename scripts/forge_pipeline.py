@@ -137,9 +137,7 @@ def select_by_gt_alignment(sae, feed, records) -> list[int]:
     Captures features most useful for the benchmark. Tie-break on
     feature_id ascending for determinism.
     """
-    sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
-    from visualize import auc_matrix
-    from smsae.sae.evaluation import build_gt_matrix
+    from smsae.sae.evaluation import auc_matrix, build_gt_matrix
     ids = sorted(records.keys())
     with torch.no_grad():
         z = sae(feed.X).z.detach().cpu().numpy().astype(np.float32)
@@ -407,8 +405,7 @@ class GroundTruthAlignment:
         # Mean-pool over the sequence dim: (N, T, F) -> (N, F)
         feats = hidden.mean(dim=1).cpu().numpy().astype(np.float32)
         # AUC of each feature vs each GT label
-        sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
-        from visualize import auc_matrix
+        from smsae.sae.evaluation import auc_matrix
         # Trim labels to match the number of samples we actually have
         N = min(feats.shape[0], self.labels.shape[0])
         A = auc_matrix(feats[:N], self.labels[:N])
@@ -531,9 +528,7 @@ def forge(compressed_path: str, sae, feed, run_dir: str) -> dict:
 def score_against_gt(activations: np.ndarray, feed) -> dict:
     """AUC of each feature column vs each GT label column. Returns a small
     summary dict shaped like the entries the scoreboard already consumes."""
-    sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
-    from visualize import auc_matrix
-    from smsae.sae.evaluation import build_gt_matrix
+    from smsae.sae.evaluation import auc_matrix, build_gt_matrix
     Y = build_gt_matrix(feed)
     A = auc_matrix(activations.astype(np.float32), Y)
     best_per_gt = A.max(axis=0) if A.size else np.zeros(Y.shape[1])

@@ -90,7 +90,7 @@
 
 - [x] 7.1 Update `scripts/forge_pipeline.py` module docstring to
       document the selector options.
-- [ ] 7.2 Add a one-paragraph aside to the visualization scoreboard
+- [x] 7.2 Add a one-paragraph aside to the visualization scoreboard
       section explaining why selection matters and how to read the
       "selection" column.
 - [ ] 7.3 Move this change to `openspec/changes/archive/` once landed.
