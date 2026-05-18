@@ -420,14 +420,54 @@ class GroundTruthAlignment:
 def _build_synthetic_host(input_dim: int, vocab_size: int = 64,
                           num_layers: int = 1, num_heads: int = 2,
                           seed: int = 0):
-    """Tiny GPT-2 with n_embd = input_dim. Random init.
+    """Return `(model, info)` for the sae-forge synthetic host.
 
-    Used as the in-memory 'host' for ForgePipeline.run_synthetic. With
-    random weights the forged model's residuals carry no real signal,
-    so the GT-alignment score will be near 0.5 — that's expected for the
-    wiring demo; meaningful scores need a cascade-host shim (host model
-    trained on cascade transitions). Tracked as a follow-up.
+    First tries to load a cascade-trained host from
+    `runs/cascade_host/<input_dim>/host/`; if not found, emits a
+    UserWarning and falls back to a random-init tiny GPT-2.
+
+    With a trained host the forged model's residuals carry real cascade
+    signal and GroundTruthAlignment scores are interpretable. With the
+    random-init fallback they reflect projection noise; the warning
+    points users at scripts/train_cascade_host.py.
     """
+    import warnings
+
+    canonical_dir = os.path.join(REPO_ROOT, "runs", "cascade_host",
+                                 str(input_dim))
+    host_dir = os.path.join(canonical_dir, "host")
+    cfg_path = os.path.join(canonical_dir, "config.json")
+    if os.path.isdir(host_dir):
+        from transformers import GPT2LMHeadModel
+        model = GPT2LMHeadModel.from_pretrained(host_dir)
+        train_meta: dict = {}
+        if os.path.exists(cfg_path):
+            try:
+                with open(cfg_path) as f:
+                    train_meta = json.load(f)
+            except Exception:
+                train_meta = {}
+        info = {
+            "kind":                "trained",
+            "path":                host_dir,
+            "n_embd":              int(model.config.n_embd),
+            "n_layer":             int(model.config.n_layer),
+            "n_head":              int(model.config.n_head),
+            "n_params":            int(sum(p.numel() for p in model.parameters())),
+            "train_loss_final":    train_meta.get("train_loss_final"),
+            "n_train_trajectories": train_meta.get("n_trajectories"),
+            "n_train_steps":       train_meta.get("n_train_steps"),
+            "seed":                train_meta.get("seed"),
+        }
+        return model, info
+
+    warnings.warn(
+        f"no trained cascade host at {host_dir}; falling back to "
+        f"random-init tiny GPT-2. Forge faithfulness scores will not "
+        f"reflect cascade structure. To train one: "
+        f"`python scripts/train_cascade_host.py --n-embd {input_dim}`",
+        UserWarning, stacklevel=2,
+    )
     from transformers import GPT2Config, GPT2LMHeadModel
     # input_dim must be divisible by num_heads
     if input_dim % num_heads != 0:
@@ -441,7 +481,17 @@ def _build_synthetic_host(input_dim: int, vocab_size: int = 64,
         n_inner=input_dim * 2,
         n_positions=64,
     )
-    return GPT2LMHeadModel(cfg)
+    model = GPT2LMHeadModel(cfg)
+    info = {
+        "kind":      "random_init",
+        "path":      None,
+        "n_embd":    int(input_dim),
+        "n_layer":   int(num_layers),
+        "n_head":    int(num_heads),
+        "n_params":  int(sum(p.numel() for p in model.parameters())),
+        "seed":      int(seed),
+    }
+    return model, info
 
 
 def _encode_feed_as_input_ids(feed, vocab_size: int = 64,
@@ -486,7 +536,7 @@ def forge(compressed_path: str, sae, feed, run_dir: str) -> dict:
         }
     projector = SubspaceProjector(basis, scale_boost=1.0)
 
-    host = _build_synthetic_host(input_dim=sae.input_dim)
+    host, host_info = _build_synthetic_host(input_dim=sae.input_dim)
     input_ids = _encode_feed_as_input_ids(feed)
     Y = build_gt_matrix(feed)
     target = GroundTruthAlignment(labels=Y)
@@ -510,15 +560,14 @@ def forge(compressed_path: str, sae, feed, run_dir: str) -> dict:
         return {
             "status":  "error",
             "reason":  f"{type(e).__name__}: {e}",
+            "host":    host_info,
         }
     return {
         "status":                   "ok",
         "faithfulness":             float(result.faithfulness),
         "faithfulness_target_name": result.faithfulness_target_name,
         "n_params":                 int(result.n_params),
-        "host":                     "random-init GPT-2 placeholder; "
-                                    "cascade-host shim is the next piece "
-                                    "needed for meaningful scores",
+        "host":                     host_info,
     }
 
 

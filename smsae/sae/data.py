@@ -229,6 +229,107 @@ def feed_cascade(n_events: int = 2000, seed: int = 0,
 
 
 # ----------------------------------------------------------------------------
+# Cascade transition data for cascade-host shim training
+# ----------------------------------------------------------------------------
+# Vocabulary for the cascade-host transformer: 61 SM particles + 1 PAD token.
+# PAD lives at the *last* index so the 0..60 indices are the canonical
+# alphabetical-order particle IDs (matching `sorted(build_sm().keys())`).
+PAD_TOKEN_ID = 61
+HOST_VOCAB_SIZE = 62
+
+
+def _particle_to_id() -> dict[str, int]:
+    """Map particle name to int id (alphabetical order; PAD = 61)."""
+    names = sorted(build_sm().keys())
+    if len(names) != 61:
+        raise RuntimeError(f"expected 61 particles, got {len(names)}")
+    return {n: i for i, n in enumerate(names)}
+
+
+def encode_state_as_ids(state: dict[str, int], max_seq: int = 32,
+                        name_to_id: dict[str, int] | None = None) -> np.ndarray:
+    """Encode a cascade state (multiset of particles) as an int64 token row.
+
+    Each particle is listed `count` times in canonical alphabetical order,
+    then PAD-extended to `max_seq`. Truncation drops the rightmost tokens.
+    Returns shape (max_seq,) int64.
+    """
+    if name_to_id is None:
+        name_to_id = _particle_to_id()
+    tokens: list[int] = []
+    for name in sorted(state.keys()):  # canonical order
+        tokens.extend([name_to_id[name]] * int(state[name]))
+    tokens = tokens[:max_seq]
+    row = np.full((max_seq,), PAD_TOKEN_ID, dtype=np.int64)
+    row[:len(tokens)] = tokens
+    return row
+
+
+def encode_state_as_targets(state: dict[str, int], input_ids: np.ndarray,
+                            max_seq: int = 32,
+                            name_to_id: dict[str, int] | None = None,
+                            ignore_index: int = -100) -> np.ndarray:
+    """Encode a state as per-position target ids aligned to `input_ids`.
+
+    Positions where `input_ids` is PAD become `ignore_index` so the loss
+    skips them. Non-PAD positions get the next-state token at that slot,
+    PAD-extended on the right if the next state is shorter.
+    """
+    if name_to_id is None:
+        name_to_id = _particle_to_id()
+    targets = np.full((max_seq,), ignore_index, dtype=np.int64)
+    next_ids = encode_state_as_ids(state, max_seq=max_seq,
+                                   name_to_id=name_to_id)
+    # Only emit a target at positions whose input is non-PAD; otherwise the
+    # model has no token to attend over and the loss should ignore.
+    non_pad = input_ids != PAD_TOKEN_ID
+    targets[non_pad] = next_ids[non_pad]
+    return targets
+
+
+def cascade_transitions(n_trajectories: int = 1000, seed: int = 0,
+                        max_steps: int = 30,
+                        start_distribution: dict[str, float] | None = None,
+                        max_seq: int = 32):
+    """Generate `(state_t, state_{t+1})` transitions from cascade rollouts.
+
+    Yields tuples `(input_ids, target_ids)` already encoded as int64 numpy
+    arrays of length `max_seq` and ready for `torch.from_numpy(...)`. One
+    trajectory contributes ~5–30 transition pairs depending on parent mass.
+    """
+    import random
+    if start_distribution is None:
+        start_distribution = {"H": 1.0, "Z": 1.0, "W+": 1.0, "W-": 1.0,
+                              "t_r": 1.0, "t_g": 1.0, "t_b": 1.0,
+                              "tau-": 0.5, "tau+": 0.5,
+                              "mu-": 0.3, "mu+": 0.3}
+    starts = list(start_distribution.keys())
+    weights = np.array(list(start_distribution.values()), dtype=float)
+    weights /= weights.sum()
+    rng_np = np.random.default_rng(seed)
+    rng_py = random.Random(seed)
+    sm = build_sm()
+    catalog = build_decay_catalog(sm)
+    name_to_id = _particle_to_id()
+
+    for _ in range(n_trajectories):
+        parent = rng_np.choice(starts, p=weights)
+        history = cascade(sm, {parent: 1}, catalog,
+                          max_steps=max_steps, rng=rng_py)
+        # history[i] = (state, decay). Pair adjacent states.
+        for t in range(len(history) - 1):
+            state_t = history[t][0]
+            state_tp1 = history[t + 1][0]
+            input_ids = encode_state_as_ids(state_t, max_seq=max_seq,
+                                            name_to_id=name_to_id)
+            target_ids = encode_state_as_targets(
+                state_tp1, input_ids, max_seq=max_seq,
+                name_to_id=name_to_id,
+            )
+            yield input_ids, target_ids
+
+
+# ----------------------------------------------------------------------------
 # Demo
 # ----------------------------------------------------------------------------
 if __name__ == "__main__":
