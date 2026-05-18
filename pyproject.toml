@@ -39,13 +39,15 @@ viz = [
 # Optional: sae-forge integration for scripts/forge_pipeline.py.
 # Apple Silicon / Linux: pip install -e ".[forge]"
 # Intel Mac (x86_64): pip install -e ".[forge-intel]"  (pins transformers<4.50)
-# Pinned to v0.5.0 — ships the WorldModel protocol that retires the
-# transformer-shape assumption baked into earlier releases.
+# Pinned to v0.5.1 — first release with the WorldModel protocol
+# implementation. v0.5.0 shipped only the proposal docs; v0.5.1 is
+# what consumers should pin against if they want the registry-driven
+# adapter dispatch + default_faithfulness_target ABC hook.
 forge = [
-  "sae-forge[torch] @ git+https://github.com/jascal/sae-forge.git@v0.5.0",
+  "sae-forge[torch] @ git+https://github.com/jascal/sae-forge.git@v0.5.1",
 ]
 forge-intel = [
-  "sae-forge[intel] @ git+https://github.com/jascal/sae-forge.git@v0.5.0",
+  "sae-forge[intel] @ git+https://github.com/jascal/sae-forge.git@v0.5.1",
 ]
 dev = [
   "pytest>=7",
