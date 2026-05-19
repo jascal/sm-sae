@@ -41,6 +41,7 @@ Once a change lands and stabilises, move its directory under
 
 | change | status | priority |
 |---|---|---|
+| [aux-supervise-cascade-host](changes/aux-supervise-cascade-host/) | proposed (closes [archived add-cascade-host-shim](changes/archive/add-cascade-host-shim/) gate 7.3 if its acceptance gate is met) | P1 |
 | [per-encoding-scoreboard-axes-a-b](changes/per-encoding-scoreboard-axes-a-b/) | proposed | P1 |
 | [auto-tune-subspace-projector-scale-boost](changes/auto-tune-subspace-projector-scale-boost/) | proposed | P2 |
 
