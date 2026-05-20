@@ -281,6 +281,10 @@
     "n_features_kept": 12,
     "n_features_zeroed": 84
   },
+  "projector": {
+    "scale_boost_arg": "auto",
+    "scale_boost_resolved": 1.0
+  },
   "forge": {
     "status": "ok",
     "faithfulness": 0.7262096578284948,

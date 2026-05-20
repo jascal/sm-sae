@@ -105,9 +105,13 @@
     "n_features_kept": 4,
     "n_features_zeroed": 7
   },
+  "projector": {
+    "scale_boost_arg": "auto",
+    "scale_boost_resolved": 0.2807017543859649
+  },
   "forge": {
     "status": "ok",
-    "faithfulness": 0.8941748489359093,
+    "faithfulness": 0.8910288997322986,
     "faithfulness_target_name": "gt_alignment",
     "n_params": 31802,
     "host": {
@@ -145,5 +149,5 @@
     "coverage_0.95_delta": 0.0,
     "mean_best_auc_delta": -0.006146907806396484
   },
-  "forge_score": 0.8941748489359093
+  "forge_score": 0.8910288997322986
 }
