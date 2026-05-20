@@ -1572,6 +1572,23 @@ def _format_recommended_defaults() -> str:
         "not to the physical labels we care about.",
         "measured",
     ), (
+        "<code>scale_boost</code>",
+        "<code>SubspaceProjector.__init__</code>",
+        "<code>1.0</code> (with footgun warning on over-complete bases)",
+        '<code>"auto"</code> (resolves to <code>min(1.0, d_model / '
+        "n_features)</code>)",
+        "sm-sae bases are over-complete in every cell where the kept "
+        "feature count exceeds the host's <code>d_model</code> (e.g. "
+        "Rung3 keeps 16 features in a 16-d embed → projector resolves "
+        "<code>0.28</code> on <code>embedded__topk</code>); for "
+        "under-complete cells (Rung5 on cascade kept 12 in 16-d) "
+        "<code>auto</code> stays at <code>1.0</code> so the existing "
+        "results don't move. Measured: <code>embedded__topk</code> "
+        "faithfulness 0.8892 → 0.8910 (Δ +0.0018, no regression); "
+        "<code>cascade__jumprelu</code> unchanged at 0.7262. Footgun "
+        "warning no longer fires.",
+        "measured",
+    ), (
         "<code>strategy</code>",
         "<code>Regrower.__init__</code>",
         '<code>"protected"</code>',

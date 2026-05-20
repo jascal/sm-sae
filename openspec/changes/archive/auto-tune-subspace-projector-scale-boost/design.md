@@ -92,3 +92,21 @@ to bisect if a forge faithfulness regression appears.
   versions; if auto's computation depends on something that ships with
   sae-forge, we should pin the sae-forge git ref too. Task 1.3
   captures this.
+
+## Results (2026-05-19, sae-forge v0.7.0)
+
+`SubspaceProjector` exposes the resolved value on
+`projector.scale_boost` (the `__post_init__` overwrites the string
+`"auto"` in-place with the computed float). No separate
+`scale_boost_resolved` attribute — we capture the original arg before
+construction and read the field after.
+
+`auto` resolves to `min(1.0, d_model / n_features)`:
+
+| cell                     | basis (kept / d_model) | resolved | faithfulness | baseline (1.0) | Δ      |
+|--------------------------|------------------------|----------|--------------|----------------|--------|
+| `embedded__topk` (Rung3) | 16 / 16 (= 1.0) — but kept 4 after Compress → over-complete vs internal n_features=57 | 0.2807 | 0.8910 | 0.8892 | +0.0018 |
+| `cascade__jumprelu` (Rung5) | 12 / 16 (under-complete) | 1.0000 | 0.7262 | 0.7262 | 0.0000 |
+
+Footgun `UserWarning` no longer fires on either cell. Gate 7.3 met (no
+absolute-AUC regression).

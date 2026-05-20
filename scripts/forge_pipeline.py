@@ -526,7 +526,8 @@ def _encode_feed_as_input_ids(feed, vocab_size: int = 64,
     return torch.from_numpy(rows)
 
 
-def forge(compressed_path: str, sae, feed, run_dir: str) -> dict:
+def forge(compressed_path: str, sae, feed, run_dir: str,
+          scale_boost: "float | str" = "auto") -> dict:
     """Stage 7: actually run sae-forge's ForgePipeline.run_synthetic with
     the bundled GroundTruthTarget."""
     from saeforge import FeatureBasis, SubspaceProjector, ForgePipeline
@@ -538,8 +539,17 @@ def forge(compressed_path: str, sae, feed, run_dir: str) -> dict:
         return {
             "status":  "skipped",
             "reason":  "compressed basis has 0 kept features; nothing to forge",
+            "projector": {"scale_boost_arg": scale_boost,
+                          "scale_boost_resolved": None},
         }
-    projector = SubspaceProjector(basis, scale_boost=1.0)
+    # SubspaceProjector mutates self.scale_boost in-place when "auto" is
+    # passed, so capture the user's original arg before construction.
+    scale_boost_arg = scale_boost
+    projector = SubspaceProjector(basis, scale_boost=scale_boost)
+    projector_info = {
+        "scale_boost_arg":      scale_boost_arg,
+        "scale_boost_resolved": float(projector.scale_boost),
+    }
 
     host, host_info = _build_synthetic_host(input_dim=sae.input_dim)
     input_ids = _encode_feed_as_input_ids(feed)
@@ -566,6 +576,7 @@ def forge(compressed_path: str, sae, feed, run_dir: str) -> dict:
             "status":  "error",
             "reason":  f"{type(e).__name__}: {e}",
             "host":    host_info,
+            "projector": projector_info,
         }
     return {
         "status":                   "ok",
@@ -573,6 +584,7 @@ def forge(compressed_path: str, sae, feed, run_dir: str) -> dict:
         "faithfulness_target_name": result.faithfulness_target_name,
         "n_params":                 int(result.n_params),
         "host":                     host_info,
+        "projector":                projector_info,
     }
 
 
@@ -609,6 +621,22 @@ def write_report(run_dir: str, payload: dict) -> str:
 # ---------------------------------------------------------------------------
 # Pipeline driver
 # ---------------------------------------------------------------------------
+def _parse_scale_boost(val: str) -> "float | str":
+    if val == "auto":
+        return "auto"
+    try:
+        f = float(val)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(
+            f"--scale-boost must be 'auto' or a positive float; got {val!r}"
+        ) from e
+    if f <= 0:
+        raise argparse.ArgumentTypeError(
+            f"--scale-boost must be positive; got {f}"
+        )
+    return f
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("run_id",
@@ -634,6 +662,11 @@ def main():
                     help="override feed name; default inferred from run_id")
     ap.add_argument("--out", default=os.path.join(REPO_ROOT, "runs", "sae_forge"))
     ap.add_argument("--n-cascade-events", type=int, default=2000)
+    ap.add_argument("--scale-boost", default="auto", type=_parse_scale_boost,
+                    dest="scale_boost",
+                    help="SubspaceProjector scale_boost. 'auto' (default) "
+                         "uses sae-forge's heuristic for over-complete bases; "
+                         "any positive float overrides for hand tuning.")
     args = ap.parse_args()
 
     run_dir = os.path.join(args.out, args.run_id)
@@ -708,8 +741,13 @@ def main():
     # Stage 7 — real sae-forge call (>= 0.5.0 for GroundTruthTarget,
     # >= 0.5.1 for the WorldModel protocol)
     print(f"  [7] sae-forge ForgePipeline.run_synthetic with "
-          f"GroundTruthTarget")
-    forge_summary = forge(compressed_path, sae, feed, run_dir)
+          f"GroundTruthTarget (scale_boost={args.scale_boost!r})")
+    forge_summary = forge(compressed_path, sae, feed, run_dir,
+                          scale_boost=args.scale_boost)
+    proj = forge_summary.get("projector") or {}
+    if proj.get("scale_boost_resolved") is not None:
+        print(f"      projector: scale_boost {proj['scale_boost_arg']!r} "
+              f"→ {proj['scale_boost_resolved']:.4f}")
     if forge_summary.get("status") == "ok":
         print(f"      faithfulness={forge_summary['faithfulness']:.4f} "
               f"({forge_summary['faithfulness_target_name']})  "
@@ -741,6 +779,7 @@ def main():
             "selection": selection_meta,
         },
         "compress":    comp_summary,
+        "projector":   forge_summary.pop("projector", None),
         "forge":       forge_summary,
         "baseline_score": baseline_scores,
         "forge_score":    (forge_summary.get("faithfulness")
