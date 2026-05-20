@@ -125,6 +125,11 @@ def run_cancellation(dictionary: Dictionary, pair: tuple[str, str], label: str):
     # polygram v0.11+ splits "at floor" (efficiency=0.0, at_structural_floor=True)
     # from "floor undefined" (efficiency=None). Pre-0.11 results lack the new
     # field; `getattr(..., False)` makes this work against either version.
+    # Other v0.11 additions (not yet read by this bridge but available on
+    # `result` and on `CompressionReport` / `EpochReport` / `RegrowReport`):
+    # the convergence-test diagnostics `rank_ratio`, `post_A`, `forge_mse`,
+    # `informative_metric`. Natural columns to add if a future summary
+    # surfaces forge-quality at the encoding level.
     at_floor = getattr(result, "at_structural_floor", False)
     if result.cancellation_efficiency is None or at_floor:
         print(f"  cancellation efficiency: N/A (no gap to begin with)")
