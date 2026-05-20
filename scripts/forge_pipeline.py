@@ -526,6 +526,51 @@ def _encode_feed_as_input_ids(feed, vocab_size: int = 64,
     return torch.from_numpy(rows)
 
 
+def _score_post_compress(compressed_path: str, sae, feed,
+                         baseline: dict | None) -> dict:
+    """Stage 6.5: re-score post-compression Axes A & B.
+
+    Reads `kept_ids` from the compressed safetensors via FeatureBasis,
+    then runs the post-A and post-B scorers from smsae.sae.evaluation.
+    The result mirrors the existing `baseline_score` shape so the
+    scoreboard can render deltas side-by-side.
+    """
+    from saeforge import FeatureBasis
+    from smsae.sae.evaluation import (
+        score_post_compression_gt,
+        score_post_compression_reconstruction,
+    )
+    basis = FeatureBasis.from_polygram_checkpoint(compressed_path)
+    kept_ids = [int(i) for i in basis.kept_ids]
+    post_a = score_post_compression_reconstruction(sae, feed, kept_ids)
+    post_b = score_post_compression_gt(sae, feed, kept_ids)
+    out: dict = {
+        "n_kept":          post_a["n_kept"],
+        "n_total":         post_a["n_total"],
+        "var_explained":   post_a["var_explained"],
+        "recon_loss_mse":  post_a["recon_loss_mse"],
+        "coverage_0.95":   post_b["coverage_0.95"],
+        "coverage_0.90":   post_b["coverage_0.90"],
+        "mean_best_auc":   post_b["mean_best_auc"],
+        "n_gt_features":   post_b["n_gt_features"],
+        # nested copies for callers that want the individual blocks
+        "post_a":          post_a,
+        "post_b":          post_b,
+    }
+    if baseline is not None:
+        # Δ vs baseline Axis A / Axis B numbers (None-safe).
+        bvar = baseline.get("var_explained") if isinstance(baseline, dict) else None
+        bcov = baseline.get("coverage_0.95") if isinstance(baseline, dict) else None
+        bmba = baseline.get("mean_best_auc") if isinstance(baseline, dict) else None
+        if isinstance(bvar, (int, float)):
+            out["var_explained_delta"] = out["var_explained"] - float(bvar)
+        if isinstance(bcov, (int, float)):
+            out["coverage_0.95_delta"] = out["coverage_0.95"] - float(bcov)
+        if isinstance(bmba, (int, float)):
+            out["mean_best_auc_delta"] = out["mean_best_auc"] - float(bmba)
+    return out
+
+
 def forge(compressed_path: str, sae, feed, run_dir: str,
           scale_boost: "float | str" = "auto") -> dict:
     """Stage 7: actually run sae-forge's ForgePipeline.run_synthetic with
@@ -738,6 +783,45 @@ def main():
         comp_summary = {"error": f"{type(e).__name__}: {e}"}
         print(f"      Compressor failed: {comp_summary['error']}")
 
+    # Stage 6.5 — baseline (uncompressed) + post-compression Axes A & B.
+    # Baseline now runs here (was stage 8) so stage 6.5 can print deltas.
+    print(f"  [6.5] baseline + post-compression scoring")
+    from smsae.sae.evaluation import score_post_compression_reconstruction
+    with torch.no_grad():
+        Z_sae = sae(feed.X).z.detach().cpu().numpy()
+    baseline_scores = score_against_gt(Z_sae, feed)
+    # Add Axis A (reconstruction) to baseline using the same scorer with
+    # all features kept — this is exactly the uncompressed var_explained.
+    baseline_a = score_post_compression_reconstruction(
+        sae, feed, list(range(int(sae.n_features))))
+    baseline_scores["var_explained"]  = baseline_a["var_explained"]
+    baseline_scores["recon_loss_mse"] = baseline_a["recon_loss_mse"]
+    print(f"      baseline: var_explained={baseline_scores['var_explained']:.3f}  "
+          f"cov≥0.95={baseline_scores['coverage_0.95']:.1%}  "
+          f"mean_best_auc={baseline_scores['mean_best_auc']:.3f}")
+
+    try:
+        post_compress_score = _score_post_compress(
+            compressed_path, sae, feed, baseline=baseline_scores)
+        pa = post_compress_score["post_a"]
+        pb = post_compress_score["post_b"]
+        dvar = post_compress_score.get("var_explained_delta")
+        dcov = post_compress_score.get("coverage_0.95_delta")
+        dmba = post_compress_score.get("mean_best_auc_delta")
+        dvar_s = f" (Δ {dvar:+.3f})" if isinstance(dvar, float) else ""
+        dcov_s = f" (Δ {dcov:+.1%})" if isinstance(dcov, float) else ""
+        dmba_s = f" (Δ {dmba:+.3f})" if isinstance(dmba, float) else ""
+        print(f"      post-A var_explained={pa['var_explained']:.3f}{dvar_s}  "
+              f"(n_kept={pa['n_kept']}/{pa['n_total']})")
+        print(f"      post-B cov≥0.95={pb['coverage_0.95']:.1%}{dcov_s}  "
+              f"mean_best_auc={pb['mean_best_auc']:.3f}{dmba_s}")
+    except Exception as e:
+        post_compress_score = {
+            "error": f"{type(e).__name__}: {e}",
+        }
+        print(f"      post-compression scoring failed: "
+              f"{post_compress_score['error']}")
+
     # Stage 7 — real sae-forge call (>= 0.5.0 for GroundTruthTarget,
     # >= 0.5.1 for the WorldModel protocol)
     print(f"  [7] sae-forge ForgePipeline.run_synthetic with "
@@ -756,15 +840,6 @@ def main():
         print(f"      {forge_summary['status']}: "
               f"{forge_summary.get('reason', '?')}")
 
-    # Stage 8 — score the *uncompressed* SAE features against GT as a baseline
-    # so we have a number to compare the forged model against once stage 7 is real
-    print(f"  [8] score SAE features against ground truth (baseline)")
-    with torch.no_grad():
-        Z_sae = sae(feed.X).z.detach().cpu().numpy()
-    baseline_scores = score_against_gt(Z_sae, feed)
-    print(f"      baseline: cov≥0.95 = {baseline_scores['coverage_0.95']:.1%}  "
-          f"mean_best_auc = {baseline_scores['mean_best_auc']:.3f}")
-
     # Stage 9
     payload = {
         "run_id":      args.run_id,
@@ -781,7 +856,9 @@ def main():
         "compress":    comp_summary,
         "projector":   forge_summary.pop("projector", None),
         "forge":       forge_summary,
-        "baseline_score": baseline_scores,
+        "baseline_score":     baseline_scores,
+        "post_compress_score": {k: v for k, v in post_compress_score.items()
+                                 if k not in ("post_a", "post_b")},
         "forge_score":    (forge_summary.get("faithfulness")
                            if forge_summary.get("status") == "ok"
                            else None),

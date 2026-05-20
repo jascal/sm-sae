@@ -149,3 +149,36 @@ something interesting.
   cells via `multiprocessing` or just accept the time cost.
 - **Delta thresholds are heuristic**: ±0.02 / ±0.10 are guesses.
   Acceptable for v1; revisit once we have distributions.
+
+## Results (2026-05-19, sae-forge v0.7.0, 8-cell matrix)
+
+`scripts/forge_pipeline_matrix.py` runs the 8-cell sweep
+(`{embedded__topk, cascade__jumprelu} × {mps_rung1, rung3, rung4,
+rung5}`). Each cell writes
+`runs/sae_forge/<run_id>__<encoding>/forge_results.json`.
+
+| cell                              | post-A | Δ A     | post-B cov | Δ B    | forge |
+|-----------------------------------|--------|---------|------------|--------|-------|
+| `embedded__topk__mps_rung1`       | 0.911  | -0.088  | 70.0%      |  0.0%  | 0.892 |
+| `embedded__topk__rung3`           | 0.911  | -0.088  | 70.0%      |  0.0%  | 0.894 |
+| `embedded__topk__rung4`           | 0.779  | -0.220  | 70.0%      |  0.0%  | 0.896 |
+| `embedded__topk__rung5`           | 0.947  | -0.052  | 70.0%      |  0.0%  | 0.889 |
+| `cascade__jumprelu__mps_rung1`    | 0.947  | -0.052  | 35.5%      | -1.7%  | 0.748 |
+| `cascade__jumprelu__rung3`        | 0.927  | -0.071  | 34.7%      | -2.5%  | 0.744 |
+| `cascade__jumprelu__rung4`        | 0.812  | -0.187  | 34.7%      | -2.5%  | 0.745 |
+| `cascade__jumprelu__rung5`        | 0.399  | -0.600  | 27.3%      | -9.9%  | 0.726 |
+
+The new axis carries information (gate 9.4): `cascade__jumprelu` under
+Rung5 produces a `fail`-red post-A drop of -0.600 even though the
+forge faithfulness is only marginally worse than Rung1. That's exactly
+the "forge score doesn't tell the whole story" gap the change is built
+to surface — Compressor zeros 84/96 kept features (84% of the
+firing-rate-selected subset) and the kept 12 features capture only 40%
+of input variance, but forge's projection interpolates across the
+host's residual stream and recovers most of the faithfulness number.
+
+Reconstruction (post-A) is consistently best at the smallest cap
+(mps_rung1) and dips at intermediate caps where Compressor zeros a
+large fraction of selected features. Alignment (post-B) is largely
+encoding-insensitive on `embedded__topk` and modestly so on
+`cascade__jumprelu` (worst Δ -9.9%).
