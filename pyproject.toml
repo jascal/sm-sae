@@ -31,7 +31,7 @@ dependencies = [
 [project.optional-dependencies]
 polygram = [
   # Install from GitHub directly; not yet published on PyPI.
-  "polygram @ git+https://github.com/jascal/polygram.git@v0.10.0",
+  "polygram @ git+https://github.com/jascal/polygram.git@v0.11.0",
 ]
 viz = [
   "matplotlib>=3.7",
