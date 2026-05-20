@@ -187,6 +187,12 @@ Further reduction requires the amplitude knobs (`alpha`, `gamma`,
 `psi_aux`, `theta_amp`), not phase. This is a meaningful structural
 statement about the encoding geometry, not a failure.
 
+Against `polygram>=0.11.0` each result also carries
+`at_structural_floor=True` (and a `UserWarning` from `Cancellation.run`)
+so the at-floor outcome is observable programmatically — not just as
+`before ≈ floor ≈ after` numerically. The bridge prints `cancellation
+efficiency: N/A` for these cases rather than the misleading `0.00%`.
+
 ## Relationship to polygram / sae-forge
 
 This project is a sandbox for ideas that feed into

@@ -122,11 +122,20 @@ def run_cancellation(dictionary: Dictionary, pair: tuple[str, str], label: str):
     print(f"  after:  |<A|B>|^2 = {result.after_overlap:.4f}")
     print(f"  structural floor:  {result.structural_floor:.4f}  "
           f"(phase alone cannot go below this)")
-    if result.cancellation_efficiency is not None:
+    # polygram v0.11+ splits "at floor" (efficiency=0.0, at_structural_floor=True)
+    # from "floor undefined" (efficiency=None). Pre-0.11 results lack the new
+    # field; `getattr(..., False)` makes this work against either version.
+    # Other v0.11 additions (not yet read by this bridge but available on
+    # `result` and on `CompressionReport` / `EpochReport` / `RegrowReport`):
+    # the convergence-test diagnostics `rank_ratio`, `post_A`, `forge_mse`,
+    # `informative_metric`. Natural columns to add if a future summary
+    # surfaces forge-quality at the encoding level.
+    at_floor = getattr(result, "at_structural_floor", False)
+    if result.cancellation_efficiency is None or at_floor:
+        print(f"  cancellation efficiency: N/A (no gap to begin with)")
+    else:
         print(f"  cancellation efficiency: {result.cancellation_efficiency:.2%}  "
               f"(1.0 = exhausted available gap; gap is amplitude-bound, not phase-bound)")
-    else:
-        print(f"  cancellation efficiency: N/A (no gap to begin with)")
     print(f"  tolerance met: {result.tolerance_met}")
     print(f"  optimized knobs: {dict(result.optimized_knobs)}")
     print(f"  trajectory length: {len(result.trajectory)} evaluations")
@@ -174,7 +183,12 @@ def main():
           f"{'efficiency':>11s} {'met?':>5s}")
     print("-" * 70)
     for (a, b, label), res in zip(pairs, cancellations):
-        eff = "N/A" if res.cancellation_efficiency is None else f"{res.cancellation_efficiency:.2%}"
+        at_floor = getattr(res, "at_structural_floor", False)
+        eff = (
+            "N/A"
+            if (res.cancellation_efficiency is None or at_floor)
+            else f"{res.cancellation_efficiency:.2%}"
+        )
         print(f"{a + ' / ' + b:<22s} {res.before_overlap:>8.4f} "
               f"{res.after_overlap:>8.4f} {res.structural_floor:>8.4f} "
               f"{eff:>11s} {str(res.tolerance_met):>5s}")
