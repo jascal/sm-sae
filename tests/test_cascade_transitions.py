@@ -94,3 +94,41 @@ def test_cascade_transitions_is_deterministic():
     for (ai, at), (bi, bt) in zip(a, b):
         assert (ai == bi).all()
         assert (at == bt).all()
+
+
+def test_cascade_transitions_with_aux_yields_3_tuples():
+    """`with_aux=True` switches the yield shape to a 3-tuple with the
+    aux-label vector; row count and earlier elements unchanged."""
+    from smsae.sae.data import cascade_transitions
+    triples = list(cascade_transitions(
+        n_trajectories=3, seed=0, max_seq=16, with_aux=True
+    ))
+    assert len(triples) >= 1
+    for row in triples:
+        assert len(row) == 3
+        input_ids, target_ids, aux = row
+        assert input_ids.shape == (16,)
+        assert target_ids.shape == (16,)
+        assert aux.shape == (5,)
+        assert aux.dtype == np.float32
+        # binarity
+        for v in aux:
+            assert float(v) in (0.0, 1.0)
+
+
+def test_cascade_transitions_with_aux_row_count_matches_without():
+    """`with_aux` is opt-in; the row count is invariant under the flag."""
+    from smsae.sae.data import cascade_transitions
+    without = list(cascade_transitions(n_trajectories=5, seed=7, max_seq=16))
+    with_aux = list(cascade_transitions(
+        n_trajectories=5, seed=7, max_seq=16, with_aux=True
+    ))
+    assert len(without) == len(with_aux)
+
+
+def test_cascade_transitions_legacy_2tuple_path_unchanged():
+    """The legacy (no-flag) call path SHALL still yield 2-tuples."""
+    from smsae.sae.data import cascade_transitions
+    pairs = list(cascade_transitions(n_trajectories=2, seed=1, max_seq=16))
+    for row in pairs:
+        assert len(row) == 2

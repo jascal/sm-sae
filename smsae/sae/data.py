@@ -290,14 +290,29 @@ def encode_state_as_targets(state: dict[str, int], input_ids: np.ndarray,
 def cascade_transitions(n_trajectories: int = 1000, seed: int = 0,
                         max_steps: int = 30,
                         start_distribution: dict[str, float] | None = None,
-                        max_seq: int = 32):
+                        max_seq: int = 32,
+                        *,
+                        with_aux: bool = False):
     """Generate `(state_t, state_{t+1})` transitions from cascade rollouts.
 
     Yields tuples `(input_ids, target_ids)` already encoded as int64 numpy
     arrays of length `max_seq` and ready for `torch.from_numpy(...)`. One
     trajectory contributes ~5–30 transition pairs depending on parent mass.
+
+    When ``with_aux=True``, each yielded tuple is a 3-tuple
+    ``(input_ids, target_ids, aux_labels)`` where ``aux_labels`` is a
+    ``(5,)``-shaped float32 array computed by
+    :func:`smsae.host.aux_labels.compute_aux_labels` on ``state_{t+1}``
+    plus the trajectory's ``initial_parent``. Default ``with_aux=False``
+    preserves the legacy 2-tuple shape byte-identically for existing
+    callers.
     """
     import random
+    if with_aux:
+        # Lazy import to keep the no-aux call path independent of the
+        # aux-labels module (which itself is torch-free, but the import
+        # cost is non-zero for callers that don't need it).
+        from smsae.host.aux_labels import compute_aux_labels
     if start_distribution is None:
         start_distribution = {"H": 1.0, "Z": 1.0, "W+": 1.0, "W-": 1.0,
                               "t_r": 1.0, "t_g": 1.0, "t_b": 1.0,
@@ -326,7 +341,11 @@ def cascade_transitions(n_trajectories: int = 1000, seed: int = 0,
                 state_tp1, input_ids, max_seq=max_seq,
                 name_to_id=name_to_id,
             )
-            yield input_ids, target_ids
+            if with_aux:
+                aux = compute_aux_labels(state_tp1, initial_parent=str(parent))
+                yield input_ids, target_ids, aux
+            else:
+                yield input_ids, target_ids
 
 
 # ----------------------------------------------------------------------------

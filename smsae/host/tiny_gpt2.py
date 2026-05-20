@@ -11,7 +11,9 @@ from __future__ import annotations
 
 def tiny_gpt2(n_embd: int, n_layer: int = 2, n_head: int | None = None,
               vocab_size: int = 62, n_positions: int = 64,
-              n_inner: int | None = None):
+              n_inner: int | None = None,
+              *,
+              aux_heads: int = 0):
     """Build a tiny GPT2LMHeadModel sized for the cascade-host shim.
 
     Args:
@@ -25,9 +27,19 @@ def tiny_gpt2(n_embd: int, n_layer: int = 2, n_head: int | None = None,
         vocab_size: token vocabulary (default 62 = 61 SM particles + PAD).
         n_positions: max sequence length.
         n_inner: FFN inner dim (default `n_embd * 4`, the standard GPT-2 ratio).
+        aux_heads: when > 0, attach ``model.aux_head = nn.Linear(n_embd,
+            aux_heads)`` for the optional supervised auxiliary loss path
+            in ``scripts/train_cascade_host.py --aux-supervision pooled``.
+            Default (``0``) preserves byte-identity with the pre-change
+            artefact: no aux_head attribute, identical parameter count,
+            identical forward-pass output. The standard ``model(input_ids)``
+            forward is unchanged in either case; the aux head is invoked
+            separately by the trainer.
 
     Returns:
-        A fresh `transformers.GPT2LMHeadModel` with random init.
+        A fresh `transformers.GPT2LMHeadModel` with random init. When
+        ``aux_heads > 0`` the returned instance has an extra
+        ``aux_head: nn.Linear(n_embd, aux_heads)`` submodule.
     """
     from transformers import GPT2Config, GPT2LMHeadModel
 
@@ -51,4 +63,10 @@ def tiny_gpt2(n_embd: int, n_layer: int = 2, n_head: int | None = None,
         n_inner=n_inner,
         n_positions=n_positions,
     )
-    return GPT2LMHeadModel(cfg)
+    model = GPT2LMHeadModel(cfg)
+
+    if aux_heads > 0:
+        import torch.nn as nn
+        model.aux_head = nn.Linear(n_embd, aux_heads)
+
+    return model
