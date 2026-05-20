@@ -1723,8 +1723,25 @@ def _format_forge_pipeline_results() -> str:
     rows = ['<thead><tr><th>run</th><th>encoding</th><th>selection</th>'
             '<th>host</th>'
             '<th>dict features</th><th>compress</th>'
-            '<th>baseline cov≥0.95</th><th>forge score</th>'
+            '<th>baseline cov≥0.95</th>'
+            '<th>post-A</th><th>Δ A</th>'
+            '<th>post-B cov</th><th>Δ B</th>'
+            '<th>forge score</th>'
             '<th>forge stage</th></tr></thead><tbody>']
+
+    def _delta_cell(d: float | None, fmt: str = "{:+.3f}",
+                    pass_band: float = 0.02,
+                    fail_band: float = 0.10) -> str:
+        if not isinstance(d, (int, float)):
+            return "—"
+        if d >= -pass_band:
+            cls = "pass"
+        elif d >= -fail_band:
+            cls = "partial"
+        else:
+            cls = "fail"
+        return f"<span class='{cls}'>{fmt.format(d)}</span>"
+
     for p in paths:
         try:
             with open(p) as f:
@@ -1746,6 +1763,22 @@ def _format_forge_pipeline_results() -> str:
         baseline = r.get("baseline_score") or {}
         bcov = baseline.get("coverage_0.95")
         bcov_cell = f"{bcov:.1%}" if isinstance(bcov, float) else "—"
+
+        pcs = r.get("post_compress_score") or {}
+        if "error" in pcs:
+            post_a_cell = post_da_cell = post_b_cell = post_db_cell = (
+                f"<span class='aside'>err</span>")
+        else:
+            pa_var = pcs.get("var_explained")
+            pb_cov = pcs.get("coverage_0.95")
+            post_a_cell = (f"{pa_var:.3f}"
+                           if isinstance(pa_var, (int, float)) else "—")
+            post_da_cell = _delta_cell(pcs.get("var_explained_delta"))
+            post_b_cell = (f"{pb_cov:.1%}"
+                           if isinstance(pb_cov, (int, float)) else "—")
+            post_db_cell = _delta_cell(
+                pcs.get("coverage_0.95_delta"), fmt="{:+.1%}")
+
         fscore = r.get("forge_score")
         fscore_cell = (f"{fscore:.3f}" if isinstance(fscore, (int, float))
                        else "<em>(forge call did not return a score)</em>")
@@ -1776,6 +1809,10 @@ def _format_forge_pipeline_results() -> str:
             f"<td>{d_n}</td>"
             f"<td>{cs_cell}</td>"
             f"<td>{bcov_cell}</td>"
+            f"<td>{post_a_cell}</td>"
+            f"<td>{post_da_cell}</td>"
+            f"<td>{post_b_cell}</td>"
+            f"<td>{post_db_cell}</td>"
             f"<td>{fscore_cell}</td>"
             f"<td><span class='aside'>{escape(forge_status)}</span></td>"
             f"</tr>")
@@ -1791,6 +1828,21 @@ def _format_forge_pipeline_results() -> str:
   at AUC ≥ 0.95 &mdash; the number the forged model has to beat (or
   at least match) for the forge to be worth doing on this fixture.</p>
   {table}
+  <p class="aside"><strong>Reading the <em>post-A</em> and
+  <em>post-B</em> columns.</strong> Axes A (reconstruction quality) and
+  B (GT alignment) at the top of the report measure the SAE
+  <em>alone</em> &mdash; they are encoding-independent because they
+  don't depend on polygram's compression choices. <strong>post-A</strong>
+  and <strong>post-B</strong> re-score the same axes on the
+  <em>kept feature subset</em> the Compressor produces, and those
+  numbers <em>are</em> encoding-dependent: different polygram encodings
+  cap feature counts differently (MPSRung1 = 8, Rung3 = 16, Rung5(4) =
+  128) and the Compressor's merge decisions depend on the encoding's
+  gram matrix. The <strong>Δ A</strong> / <strong>Δ B</strong> columns
+  are the cost of compression for that cell &mdash; green (≥ -0.02) is
+  essentially no degradation, amber (-0.10 to -0.02) is a measurable
+  cost worth flagging, red (&lt; -0.10) means the kept subset lost a
+  meaningful fraction of the SAE's signal.</p>
   <p class="aside"><strong>Reading the <em>host</em> column.</strong>
   sae-forge's <code>ForgePipeline.run_synthetic</code> projects a host
   transformer's weights into the polygram feature basis. With a
@@ -2130,6 +2182,12 @@ def section_benchmark() -> str:
           known feature factorization?</td>
       <td>downstream tools (sae-forge, distillation) can consume it</td></tr>
 </table>
+<p class="aside">Axes A and B above are <strong>pre-polygram</strong>
+(encoding-independent). Their <strong>post-polygram</strong> variants
+&mdash; the same scores re-computed on the kept feature subset, which
+<em>is</em> encoding-dependent &mdash; live in the
+<a href="#benchmark">Forge pipeline runs</a> table further down, in the
+<em>post-A</em>, <em>Δ A</em>, <em>post-B</em>, <em>Δ B</em> columns.</p>
 """
 
     return f"""
@@ -2625,6 +2683,9 @@ code.scalar { font-size: 13px; color: #225; background: #f3f3f8;
 table.scorecard td.pass { color: #2a6; font-weight: bold; }
 table.scorecard td.partial { color: #b80; font-weight: bold; }
 table.scorecard td.fail { color: #c33; font-weight: bold; }
+span.pass    { color: #2a6; font-weight: bold; }
+span.partial { color: #b80; font-weight: bold; }
+span.fail    { color: #c33; font-weight: bold; }
 table.defaults { font-size: 12px; }
 table.defaults td { vertical-align: top; padding: 6px 10px; }
 table.defaults th { background: #eef; font-size: 11px; text-align: left;

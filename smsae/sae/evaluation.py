@@ -116,6 +116,66 @@ def score_sae(sae, feed: Feed) -> np.ndarray:
     return out.z.detach().cpu().numpy()
 
 
+def score_post_compression_reconstruction(sae, feed: Feed,
+                                          kept_ids) -> dict:
+    """Axis A re-scored on the kept feature subset (post-polygram).
+
+    Encodes the feed normally, zeros every column of z whose feature id
+    is not in `kept_ids`, then decodes. This mirrors what polygram's
+    Compressor does to the SAE (zeroing dropped features' columns of
+    W_dec) without requiring the compressed safetensors round-trip.
+    """
+    kept = sorted({int(i) for i in kept_ids})
+    with torch.no_grad():
+        z = sae(feed.X).z.detach().clone()              # (N, F_full)
+    F_full = int(z.shape[1])
+    if len(kept) < F_full:
+        mask = torch.zeros(F_full, dtype=torch.bool, device=z.device)
+        if kept:
+            mask[torch.as_tensor(kept, device=z.device)] = True
+        z[:, ~mask] = 0.0
+    with torch.no_grad():
+        x_hat = sae.decode(z)
+    x = feed.X.to(x_hat.dtype).to(x_hat.device)
+    var_x = float(torch.var(x, unbiased=False))
+    resid = x - x_hat
+    var_resid = float(torch.var(resid, unbiased=False))
+    var_explained = (1.0 - var_resid / var_x) if var_x > 1e-12 else 0.0
+    mse = float(torch.mean(resid ** 2))
+    return {
+        "var_explained":  float(var_explained),
+        "recon_loss_mse": float(mse),
+        "n_kept":         int(len(kept)),
+        "n_total":        F_full,
+    }
+
+
+def score_post_compression_gt(sae, feed: Feed, kept_ids) -> dict:
+    """Axis B re-scored on the kept feature subset (post-polygram)."""
+    kept = sorted({int(i) for i in kept_ids})
+    with torch.no_grad():
+        z = sae(feed.X).z.detach().cpu().numpy().astype(np.float32)
+    Y = build_gt_matrix(feed)
+    if not kept:
+        return {
+            "coverage_0.95":  0.0,
+            "coverage_0.90":  0.0,
+            "mean_best_auc":  0.5,
+            "n_kept":         0,
+            "n_gt_features":  int(Y.shape[1]),
+        }
+    Z_kept = z[:, kept]
+    A = auc_matrix(Z_kept, Y)
+    best_per_gt = A.max(axis=0) if A.size else np.full(Y.shape[1], 0.5)
+    return {
+        "coverage_0.95":  float((best_per_gt >= 0.95).mean()),
+        "coverage_0.90":  float((best_per_gt >= 0.90).mean()),
+        "mean_best_auc":  float(best_per_gt.mean()),
+        "n_kept":         int(len(kept)),
+        "n_gt_features":  int(Y.shape[1]),
+    }
+
+
 def align(Z: np.ndarray, Y: np.ndarray, gt_vocab: list[str]) -> AlignmentReport:
     """Compute the full alignment matrix and aggregate statistics.
 
