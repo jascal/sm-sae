@@ -1790,9 +1790,24 @@ def _format_forge_pipeline_results() -> str:
             kind = host_block.get("kind", "?")
             if kind == "trained":
                 loss = host_block.get("train_loss_final")
-                loss_str = (f" (loss={loss:.3f})"
+                loss_str = (f"loss={loss:.3f}"
                             if isinstance(loss, (int, float)) else "")
-                host_cell = f"🎓 trained{loss_str}"
+                # aux-supervise-cascade-host: hosts trained with a
+                # supervised auxiliary head render with the 🎓+aux marker
+                # and a parenthesised aux loss alongside the LM loss.
+                # Pre-change hosts (missing aux_supervision) read back
+                # as "off" via _build_synthetic_host and fall through
+                # to the plain 🎓 marker below.
+                aux_supervision = host_block.get("aux_supervision", "off")
+                if aux_supervision != "off":
+                    aux_loss = host_block.get("aux_loss_final")
+                    aux_str = (f", aux={aux_loss:.3f}"
+                               if isinstance(aux_loss, (int, float)) else "")
+                    suffix = f" ({loss_str}{aux_str})" if loss_str else ""
+                    host_cell = f"🎓+aux trained{suffix}"
+                else:
+                    host_cell = (f"🎓 trained ({loss_str})"
+                                 if loss_str else "🎓 trained")
             elif kind == "random_init":
                 host_cell = "<em>🎲 random</em>"
             else:
@@ -1856,7 +1871,13 @@ def _format_forge_pipeline_results() -> str:
   model's residuals carry no real signal and the score reflects the
   AUC-pooling stumbling onto coincidental correlations. Rows with
   🎲 are wiring sanity checks, not scientific claims; only 🎓 rows
-  belong in Axis-C comparisons.</p>
+  belong in Axis-C comparisons. Rows marked
+  <strong>🎓+aux</strong> were trained with an auxiliary supervision
+  head over five binary per-state labels (charge / baryon
+  conservation, top-quark lineage / existence, Higgs presence);
+  see
+  <code>openspec/changes/archive/aux-supervise-cascade-host/</code>
+  for the recipe and the gate-7.3 motivation.</p>
   <p class="aside"><strong>Reading the <em>selection</em> column.</strong>
   The polygram encoding caps the Dictionary at a number of features
   determined by its rung and amplitude-qubit count (the current default

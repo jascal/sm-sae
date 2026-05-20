@@ -125,6 +125,13 @@ python scripts/evaluate.py
 
 # Phase C: convert SM bundle to a polygram Dictionary + run cancellation
 python scripts/polygram_demo.py
+
+# Optional: train a cascade-host shim for the sae-forge synthetic-host path.
+# `--aux-supervision pooled` adds a supervised head over 5 per-state binary
+# labels (charge / baryon conservation, top-quark lineage / existence, Higgs
+# presence). Closes gate 7.3 if the trained-vs-random faithfulness delta on
+# cascade__jumprelu reaches ≥ 0.05. Defaults to `off` (legacy LM-only loss).
+python scripts/train_cascade_host.py --n-embd 61 --aux-supervision pooled
 ```
 
 ## What's in the SM bundle

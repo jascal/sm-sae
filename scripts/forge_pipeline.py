@@ -462,6 +462,11 @@ def _build_synthetic_host(input_dim: int, vocab_size: int = 64,
             "n_train_trajectories": train_meta.get("n_trajectories"),
             "n_train_steps":       train_meta.get("n_train_steps"),
             "seed":                train_meta.get("seed"),
+            # Aux-supervision metadata (config.json schema bump from
+            # `aux-supervise-cascade-host`). Defaults preserve the
+            # legacy reading for hosts trained before this change.
+            "aux_supervision":     train_meta.get("aux_supervision", "off"),
+            "aux_loss_final":      train_meta.get("aux_loss_final"),
         }
         return model, info
 
