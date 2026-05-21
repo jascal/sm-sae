@@ -50,6 +50,18 @@ SWEEP_CONFIGS: list[tuple[int, int]] = [
     (192, 2),
 ]
 
+
+# Depth-only grid for cascade-host-depth-sweep. Direct follow-up to
+# the capacity sweep's finding that depth at fixed n_embd=61 is the
+# binding axis for gate 7.3. Extrapolating PR #25's L4 -> L6 rate,
+# L10 is the predicted transition point for Δ_random >= +0.05.
+DEPTH_GRID: list[tuple[int, int]] = [
+    (61, 6),    # re-baseline at the highest depth from PR #25
+    (61, 8),
+    (61, 10),
+    (61, 12),
+]
+
 # Spotlight features for gate C.3 — the weakest features in
 # PRs #22/#23 that the capacity hypothesis predicts will lift by
 # capacity alone.
@@ -373,9 +385,35 @@ def main():
                     help="run only the smallest 2 configs (61x2, 96x2) as a "
                          "smoke test; useful for verifying the script wiring "
                          "without burning ~16 min on the full grid.")
+    ap.add_argument("--grid", default="capacity",
+                    choices=("capacity", "depth", "custom"),
+                    help="config preset. 'capacity' (default) — the 6-config "
+                         "(n_embd, n_layer) grid from PR #25. 'depth' — the "
+                         "4-config follow-up at fixed n_embd=61, varying "
+                         "n_layer in {6,8,10,12} (cascade-host-depth-sweep). "
+                         "'custom' — supply --config NE_L flags.")
+    ap.add_argument("--config", action="append", default=[],
+                    help="repeatable NE_L specifier when --grid=custom "
+                         "(e.g. --config 61_8 --config 96_4).")
     args = ap.parse_args()
 
-    configs = SWEEP_CONFIGS
+    if args.grid == "depth":
+        configs = DEPTH_GRID
+        print(f"[sweep] --grid=depth: 4-config depth follow-up "
+              f"{configs}")
+    elif args.grid == "custom":
+        if not args.config:
+            ap.error("--grid=custom requires at least one --config NE_L")
+        configs = []
+        for spec in args.config:
+            try:
+                ne_str, l_str = spec.split("_")
+                configs.append((int(ne_str), int(l_str)))
+            except (ValueError, AttributeError):
+                ap.error(f"--config must be 'NE_L' (e.g. 61_8); got {spec!r}")
+        print(f"[sweep] --grid=custom: {configs}")
+    else:
+        configs = SWEEP_CONFIGS
     if args.smoke:
         # Smoke: one forge-measurable + one probe-only to verify both paths
         configs = [(61, 2), (96, 2)]
