@@ -118,3 +118,76 @@ def compute_aux_labels(
         ],
         dtype=np.float32,
     )
+
+
+# ---------------------------------------------------------------------------
+# v2 aux vocabulary: 110-feature GT labels
+# ---------------------------------------------------------------------------
+# `richer-cascade-host-supervision-v2` extends the v1 5-label vocabulary to
+# the full sm-sae GT vocabulary surfaced by
+# `smsae.sae.data.all_ground_truth_features()` — ~110 binary labels per
+# state, one per (particle | kind | flavor | color | is_* | chirality |
+# generation | charge_sign) value. The probe diagnosis showed the host
+# under-trains per-particle / per-color / per-flavor identity at the
+# medium-strength level (0.74-0.85 AUC); explicit supervision against
+# this vocabulary is the falsifiable lever.
+
+
+@lru_cache(maxsize=1)
+def _gt_aux_label_names() -> tuple[str, ...]:
+    """Cached, frozen tuple of the GT aux vocabulary (deferred import to
+    keep this module torch-free at the top level)."""
+    from smsae.sae.data import all_ground_truth_features
+
+    return tuple(all_ground_truth_features())
+
+
+def gt_aux_label_names() -> list[str]:
+    """Return the v2 aux-label vocabulary (full sm-sae GT vocabulary) in
+    stable order. Fresh list each call (mutation-safe).
+    """
+    return list(_gt_aux_label_names())
+
+
+@lru_cache(maxsize=1)
+def _particle_feature_lookup() -> dict[str, frozenset[str]]:
+    """Cached `particle_name -> feature-set` map used by
+    :func:`compute_gt_aux_labels` to avoid recomputing per-state."""
+    from smsae.sae.data import particle_features
+    from smsae.sm.embeddings import build_sm
+
+    sm = build_sm()
+    return {name: frozenset(particle_features(name)) for name in sm}
+
+
+def compute_gt_aux_labels(state: dict[str, int]) -> np.ndarray:
+    """Compute the 110-feature GT label vector for a cascade state.
+
+    Per-state binary label: bit-i is 1 iff ANY particle in ``state``
+    carries GT feature i (the OR over per-particle feature sets).
+    Matches the labelling convention used by
+    ``scripts/probe_full_gt_recoverability.py``.
+
+    Args:
+        state: ``dict[particle_name, count]`` — the cascade state.
+            Counts SHALL be non-negative integers; the function does not
+            validate but assumes simulator-produced states.
+
+    Returns:
+        A ``(len(gt_aux_label_names()),)``-shaped ``float32`` array of
+        0/1 values matching the column order of
+        :func:`gt_aux_label_names`.
+    """
+    names = _gt_aux_label_names()
+    lookup = _particle_feature_lookup()
+    name_to_idx = {n: i for i, n in enumerate(names)}
+
+    row = np.zeros(len(names), dtype=np.float32)
+    for particle, count in state.items():
+        if count <= 0:
+            continue
+        for feat in lookup.get(particle, ()):  # empty set for unknown particles
+            idx = name_to_idx.get(feat)
+            if idx is not None:
+                row[idx] = 1.0
+    return row

@@ -175,3 +175,86 @@ def test_aux_labels_module_does_not_import_torch():
     src = open(aux_module.__file__).read()
     assert "import torch" not in src, "aux_labels.py should not import torch"
     assert "from torch" not in src, "aux_labels.py should not import torch"
+
+
+# ---------------------------------------------------------------------------
+# v2 GT-vocabulary helpers (richer-cascade-host-supervision-v2)
+# ---------------------------------------------------------------------------
+
+from smsae.host.aux_labels import compute_gt_aux_labels, gt_aux_label_names
+
+
+def test_gt_aux_label_names_is_full_gt_vocab():
+    """The v2 vocabulary matches sm-sae's GT vocabulary in length and
+    order (so column indices match between this module and the probe)."""
+    from smsae.sae.data import all_ground_truth_features
+    expected = all_ground_truth_features()
+    actual = gt_aux_label_names()
+    assert actual == expected
+
+
+def test_gt_aux_label_names_is_stable_across_calls():
+    a = gt_aux_label_names()
+    b = gt_aux_label_names()
+    assert a == b
+    # Each call returns a fresh list so callers can't mutate the canonical
+    assert a is not b
+
+
+def test_compute_gt_aux_labels_shape_and_dtype():
+    names = gt_aux_label_names()
+    state = {"t_r": 1, "b_g": 1, "W+": 1}
+    labels = compute_gt_aux_labels(state)
+    assert labels.shape == (len(names),)
+    assert labels.dtype == np.float32
+    # All values are 0 or 1
+    assert set(np.unique(labels).tolist()) <= {0.0, 1.0}
+
+
+def test_compute_gt_aux_labels_top_quark_state_hits_expected_features():
+    """A state with t_r should light up `particle:t_r`, `flavor:t`,
+    `color:r`, `is_colored`, `is_charged`, etc."""
+    names = gt_aux_label_names()
+    name_to_idx = {n: i for i, n in enumerate(names)}
+    state = {"t_r": 1}
+    labels = compute_gt_aux_labels(state)
+
+    # Particle identity
+    assert labels[name_to_idx["particle:t_r"]] == 1.0
+    # Flavor (use the actual flavor key produced by particle_info)
+    if "flavor:t" in name_to_idx:
+        assert labels[name_to_idx["flavor:t"]] == 1.0
+    # Color
+    if "color:r" in name_to_idx:
+        assert labels[name_to_idx["color:r"]] == 1.0
+    # is_colored / is_charged
+    if "is_colored" in name_to_idx:
+        assert labels[name_to_idx["is_colored"]] == 1.0
+
+
+def test_compute_gt_aux_labels_empty_state_is_all_zero():
+    labels = compute_gt_aux_labels({})
+    assert labels.sum() == 0.0
+
+
+def test_compute_gt_aux_labels_zero_counts_ignored():
+    """A particle with count=0 SHALL NOT contribute to the label vector."""
+    names = gt_aux_label_names()
+    name_to_idx = {n: i for i, n in enumerate(names)}
+    labels = compute_gt_aux_labels({"t_r": 0})
+    # No top-quark-related features should fire
+    if "particle:t_r" in name_to_idx:
+        assert labels[name_to_idx["particle:t_r"]] == 0.0
+
+
+def test_compute_gt_aux_labels_multi_particle_or():
+    """The label vector is the OR over per-particle feature sets — so a
+    multi-particle state lights every feature that any constituent
+    carries."""
+    names = gt_aux_label_names()
+    name_to_idx = {n: i for i, n in enumerate(names)}
+    state = {"t_r": 1, "e-": 1}
+    labels = compute_gt_aux_labels(state)
+    # Both particle:t_r AND particle:e- should be 1
+    assert labels[name_to_idx["particle:t_r"]] == 1.0
+    assert labels[name_to_idx["particle:e-"]] == 1.0

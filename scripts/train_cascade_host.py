@@ -46,17 +46,20 @@ def _git_commit() -> str | None:
 
 
 def _build_dataset(n_trajectories: int, seed: int, max_seq: int,
-                    *, with_aux: bool = False):
+                    *, with_aux: bool = False, with_gt_aux: bool = False):
     """Materialize the (input_ids, target_ids[, aux_labels]) tensors.
 
     ``with_aux=False`` (default) returns a 2-tuple matching the
     legacy contract. ``with_aux=True`` returns a 3-tuple whose third
-    element is a ``(N, 5)`` float32 tensor of per-row aux labels.
+    element is a ``(N, 5)`` float32 tensor of v1 5-label aux labels.
+    ``with_gt_aux=True`` returns a 3-tuple whose third element is a
+    ``(N, n_gt_features)`` tensor of v2 110-feature GT aux labels.
+    The two aux modes are mutually exclusive.
     """
     from smsae.sae.data import cascade_transitions
     rows = list(cascade_transitions(
         n_trajectories=n_trajectories, seed=seed, max_seq=max_seq,
-        with_aux=with_aux,
+        with_aux=with_aux, with_gt_aux=with_gt_aux,
     ))
     if not rows:
         raise RuntimeError(
@@ -64,10 +67,36 @@ def _build_dataset(n_trajectories: int, seed: int, max_seq: int,
             f"n_trajectories={n_trajectories}; check the rollout config.")
     input_ids = torch.from_numpy(np.stack([r[0] for r in rows], axis=0))
     targets = torch.from_numpy(np.stack([r[1] for r in rows], axis=0))
-    if not with_aux:
+    if not (with_aux or with_gt_aux):
         return input_ids, targets
     aux_labels = torch.from_numpy(np.stack([r[2] for r in rows], axis=0))
     return input_ids, targets, aux_labels
+
+
+def _focal_bce_loss(logits: "torch.Tensor", targets: "torch.Tensor",
+                    gamma: float = 2.0) -> "torch.Tensor":
+    """Focal binary-cross-entropy loss, matching
+    ``saeforge.training.heads.focal_bce_loss``'s contract: standard
+    BCE_with_logits per element, weighted by ``(1 - p_t)^gamma`` where
+    ``p_t = sigmoid(logits)`` for positives and ``1 - sigmoid(logits)``
+    for negatives. ``gamma=0`` reduces exactly to plain BCE.
+
+    Implemented locally rather than imported from sae-forge because
+    sm-sae's torch-light contract (cascade-host trainer runs in <30s on
+    CPU) doesn't justify the full sae-forge import chain just for one
+    loss function; the implementation is < 10 lines.
+
+    Reduction is mean over all elements (matches the legacy pooled-BCE
+    setup that ships in v1).
+    """
+    bce_per_element = F.binary_cross_entropy_with_logits(
+        logits, targets, reduction="none",
+    )
+    if gamma == 0:
+        return bce_per_element.mean()
+    p = torch.sigmoid(logits)
+    p_t = p * targets + (1.0 - p) * (1.0 - targets)
+    return ((1.0 - p_t) ** gamma * bce_per_element).mean()
 
 
 def _cosine_lr(step: int, total: int, base_lr: float,
@@ -89,21 +118,25 @@ def train(n_embd: int, n_trajectories: int = 2000, epochs: int = 5,
           max_seq: int = 32, out: str | None = None,
           log_every: int = 100,
           aux_supervision: str = "off",
-          aux_lambda: float = 1.0) -> dict:
+          aux_lambda: float = 1.0,
+          focal_gamma: float = 2.0) -> dict:
     """Run the training loop and persist the trained host. Returns metadata.
 
     Args:
         aux_supervision: one of ``"off"`` (default; byte-identical to
             pre-change behaviour), ``"pooled"`` (mean-pool the final
             hidden state across the sequence axis, feed into a single
-            ``Linear -> BCE_with_logits`` head against the 5-label
-            vocabulary). ``"per_channel"`` and ``"dual"`` raise
-            ``NotImplementedError`` at startup with a pointer to the
-            follow-up openspec changes (econ-sae Phase 5.2 / 6.2 recipe
-            transposes).
+            ``Linear -> BCE_with_logits`` head against the 5-label v1
+            vocabulary), ``"per_channel"`` (v2 from
+            richer-cascade-host-supervision-v2; pooled head against the
+            full 110-feature GT vocabulary with focal-BCE loss).
+            ``"dual"`` still raises ``NotImplementedError``.
         aux_lambda: coefficient on the BCE term. Ignored when
-            ``aux_supervision == "off"``. Default ``1.0`` matches the
-            econ-sae Phase 5.1 setting.
+            ``aux_supervision == "off"``.
+        focal_gamma: focal-loss focusing parameter. Ignored when
+            ``aux_supervision != "per_channel"``. Default ``2.0`` matches
+            the econ-sae Phase 6.2 setting that lifted regime-tier mAUC
+            from 0.595 to 0.991.
     """
     from smsae.host import tiny_gpt2
 
@@ -111,17 +144,15 @@ def train(n_embd: int, n_trajectories: int = 2000, epochs: int = 5,
         raise ValueError(
             f"--aux-supervision must be one of "
             f"{list(_VALID_AUX_SUPERVISION_MODES)}; got {aux_supervision!r}")
-    if aux_supervision in ("per_channel", "dual"):
+    if aux_supervision == "dual":
         raise NotImplementedError(
-            f"--aux-supervision={aux_supervision!r} is not implemented in v1. "
-            f"The pooled variant is the v1 MVP; per-channel and dual-head "
-            f"follow as separate openspec changes "
-            f"(per-channel-cascade-host-supervision, "
-            f"dual-head-cascade-host-supervision) — file them if v1 "
-            f"misses gate 7.3 but moves the needle non-trivially. See "
-            f"openspec/changes/archive/aux-supervise-cascade-host/proposal.md "
-            f"for the recipe map.")
-    aux_on = aux_supervision == "pooled"
+            f"--aux-supervision=dual is not implemented yet. v1 ships "
+            f"pooled (5 labels) and v2 ships per_channel (110 labels). "
+            f"Dual-head (pooled + per_channel simultaneously) is the "
+            f"documented follow-up in "
+            f"openspec/changes/archive/2026-05-20-aux-supervise-cascade-host/proposal.md.")
+    aux_on = aux_supervision in ("pooled", "per_channel")
+    use_gt_vocab = aux_supervision == "per_channel"
 
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -131,13 +162,17 @@ def train(n_embd: int, n_trajectories: int = 2000, epochs: int = 5,
 
     print(f"[train] n_embd={n_embd}  n_layer={n_layer}  n_trajectories={n_trajectories}")
     if aux_on:
-        print(f"[train] aux_supervision=pooled  aux_lambda={aux_lambda}")
+        loss_kind = "focal-BCE" if use_gt_vocab else "BCE"
+        print(f"[train] aux_supervision={aux_supervision}  "
+              f"aux_lambda={aux_lambda}  loss={loss_kind}"
+              + (f"  focal_gamma={focal_gamma}" if use_gt_vocab else ""))
     print(f"[train] building dataset...")
     t0 = time.time()
     if aux_on:
         input_ids, targets, aux_labels = _build_dataset(
             n_trajectories=n_trajectories, seed=seed, max_seq=max_seq,
-            with_aux=True,
+            with_aux=not use_gt_vocab,
+            with_gt_aux=use_gt_vocab,
         )
         n_aux_labels = aux_labels.shape[1]
     else:
@@ -188,7 +223,10 @@ def train(n_embd: int, n_trajectories: int = 2000, epochs: int = 5,
                     y.reshape(-1),
                     ignore_index=-100,
                 )
-                aux_loss = F.binary_cross_entropy_with_logits(aux_logits, a)
+                if use_gt_vocab:
+                    aux_loss = _focal_bce_loss(aux_logits, a, gamma=focal_gamma)
+                else:
+                    aux_loss = F.binary_cross_entropy_with_logits(aux_logits, a)
                 loss = ce_loss + aux_lambda * aux_loss
                 last_ce = float(ce_loss.detach())
                 last_aux = float(aux_loss.detach())
@@ -224,8 +262,12 @@ def train(n_embd: int, n_trajectories: int = 2000, epochs: int = 5,
     # Lazy import to avoid importing aux_labels in the off path.
     aux_label_list: list[str] = []
     if aux_on:
-        from smsae.host.aux_labels import aux_label_names
-        aux_label_list = aux_label_names()
+        if use_gt_vocab:
+            from smsae.host.aux_labels import gt_aux_label_names
+            aux_label_list = gt_aux_label_names()
+        else:
+            from smsae.host.aux_labels import aux_label_names
+            aux_label_list = aux_label_names()
 
     meta = {
         "n_embd":              n_embd,
@@ -249,6 +291,7 @@ def train(n_embd: int, n_trajectories: int = 2000, epochs: int = 5,
         "aux_labels":          aux_label_list,
         "aux_lambda":          aux_lambda if aux_on else 0.0,
         "aux_loss_final":      last_aux if aux_on else None,
+        "focal_gamma":         focal_gamma if use_gt_vocab else None,
         "git_commit":          _git_commit(),
         "elapsed_seconds":     time.time() - t0,
     }
@@ -295,6 +338,14 @@ def main():
               "Ignored when --aux-supervision off. Default 1.0 matches "
               "the econ-sae Phase 5.1 setting."),
     )
+    ap.add_argument(
+        "--focal-gamma",
+        type=float,
+        default=2.0,
+        help=("Focal-loss focusing parameter for --aux-supervision per_channel. "
+              "Ignored otherwise. Default 2.0 matches econ-sae Phase 6.2; "
+              "gamma=0 reduces exactly to plain BCE."),
+    )
     args = ap.parse_args()
 
     train(
@@ -304,6 +355,7 @@ def main():
         max_seq=args.max_seq, out=args.out,
         aux_supervision=args.aux_supervision,
         aux_lambda=args.aux_lambda,
+        focal_gamma=args.focal_gamma,
     )
 
 
