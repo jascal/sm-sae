@@ -1,0 +1,30 @@
+{
+  "experiment": "sae-family-swap",
+  "host": "runs/cascade_host/sweep_NE61_L6 (the empirical depth peak from PR #26)",
+  "encoding": "rung5",
+  "rows": [
+    {
+      "family": "cascade__jumprelu",
+      "trained_score": 0.7549,
+      "random_score": 0.731,
+      "delta_random": 0.0239,
+      "gate_7_3_close": false
+    },
+    {
+      "family": "cascade__topk",
+      "trained_score": 0.7598,
+      "random_score": 0.758,
+      "delta_random": 0.0018,
+      "gate_7_3_close": false
+    },
+    {
+      "family": "cascade__l1",
+      "trained_score": 0.7273,
+      "random_score": 0.7381,
+      "delta_random": -0.0108,
+      "gate_7_3_close": false
+    }
+  ],
+  "finding": "SAE family IS binding (variance 0.033 trained / 0.027 random > 0.02 threshold). But the gate-7.3 framing (delta-vs-random) penalises SAEs with strong structural priors: cascade__topk reaches highest ABSOLUTE 0.760 with no trained host, while cascade__jumprelu has lowest random baseline and largest trained-vs-random gap. Gate 7.3 was implicitly designed against the jumprelu cell.",
+  "recommendation": "Re-frame gate 7.3 to measure absolute forge_score rather than delta-vs-random. OR pivot to vocabulary-entropy investigation: the trained loss floor ~1.7 across all 12 host configs suggests the cascade rollout has limited discriminative entropy per-particle, capping any SAE/host combination."
+}
