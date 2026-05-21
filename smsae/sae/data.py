@@ -292,7 +292,8 @@ def cascade_transitions(n_trajectories: int = 1000, seed: int = 0,
                         start_distribution: dict[str, float] | None = None,
                         max_seq: int = 32,
                         *,
-                        with_aux: bool = False):
+                        with_aux: bool = False,
+                        with_gt_aux: bool = False):
     """Generate `(state_t, state_{t+1})` transitions from cascade rollouts.
 
     Yields tuples `(input_ids, target_ids)` already encoded as int64 numpy
@@ -306,13 +307,26 @@ def cascade_transitions(n_trajectories: int = 1000, seed: int = 0,
     plus the trajectory's ``initial_parent``. Default ``with_aux=False``
     preserves the legacy 2-tuple shape byte-identically for existing
     callers.
+
+    When ``with_gt_aux=True``, the third element is a
+    ``(len(gt_aux_label_names()),)``-shaped float32 array — the
+    110-feature GT vocabulary used by ``richer-cascade-host-supervision-v2``.
+    ``with_aux`` and ``with_gt_aux`` are mutually exclusive; setting
+    both raises ``ValueError``.
     """
     import random
+    if with_aux and with_gt_aux:
+        raise ValueError(
+            "cascade_transitions: with_aux and with_gt_aux are mutually "
+            "exclusive — pick one aux-label vocabulary per call."
+        )
     if with_aux:
         # Lazy import to keep the no-aux call path independent of the
         # aux-labels module (which itself is torch-free, but the import
         # cost is non-zero for callers that don't need it).
         from smsae.host.aux_labels import compute_aux_labels
+    elif with_gt_aux:
+        from smsae.host.aux_labels import compute_gt_aux_labels
     if start_distribution is None:
         start_distribution = {"H": 1.0, "Z": 1.0, "W+": 1.0, "W-": 1.0,
                               "t_r": 1.0, "t_g": 1.0, "t_b": 1.0,
@@ -343,6 +357,9 @@ def cascade_transitions(n_trajectories: int = 1000, seed: int = 0,
             )
             if with_aux:
                 aux = compute_aux_labels(state_tp1, initial_parent=str(parent))
+                yield input_ids, target_ids, aux
+            elif with_gt_aux:
+                aux = compute_gt_aux_labels(state_tp1)
                 yield input_ids, target_ids, aux
             else:
                 yield input_ids, target_ids
