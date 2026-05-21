@@ -423,22 +423,33 @@ def compress(vreport, sae_safetensors_path: str, out_path: str,
 
 def _build_synthetic_host(input_dim: int, vocab_size: int = 64,
                           num_layers: int = 1, num_heads: int = 2,
-                          seed: int = 0):
+                          seed: int = 0,
+                          host_dir_override: str | None = None):
     """Return `(model, info)` for the sae-forge synthetic host.
 
     First tries to load a cascade-trained host from
-    `runs/cascade_host/<input_dim>/host/`; if not found, emits a
+    ``host_dir_override`` if supplied, else from
+    ``runs/cascade_host/<input_dim>/host/``; if not found, emits a
     UserWarning and falls back to a random-init tiny GPT-2.
 
     With a trained host the forged model's residuals carry real cascade
     signal and GroundTruthTarget scores are interpretable. With the
     random-init fallback they reflect projection noise; the warning
     points users at scripts/train_cascade_host.py.
+
+    The ``host_dir_override`` flag exists for the capacity-sweep
+    driver (``cascade_host_capacity_sweep.py``), which trains hosts
+    at varying ``n_embd`` into per-config directories and feeds them
+    to the forge one at a time without overwriting the canonical
+    ``runs/cascade_host/61/`` slot.
     """
     import warnings
 
-    canonical_dir = os.path.join(REPO_ROOT, "runs", "cascade_host",
-                                 str(input_dim))
+    if host_dir_override is not None:
+        canonical_dir = os.path.abspath(host_dir_override)
+    else:
+        canonical_dir = os.path.join(REPO_ROOT, "runs", "cascade_host",
+                                     str(input_dim))
     host_dir = os.path.join(canonical_dir, "host")
     cfg_path = os.path.join(canonical_dir, "config.json")
     if os.path.isdir(host_dir):
@@ -577,9 +588,14 @@ def _score_post_compress(compressed_path: str, sae, feed,
 
 
 def forge(compressed_path: str, sae, feed, run_dir: str,
-          scale_boost: "float | str" = "auto") -> dict:
+          scale_boost: "float | str" = "auto",
+          host_dir: str | None = None) -> dict:
     """Stage 7: actually run sae-forge's ForgePipeline.run_synthetic with
-    the bundled GroundTruthTarget."""
+    the bundled GroundTruthTarget.
+
+    ``host_dir`` (when supplied) overrides the canonical
+    ``runs/cascade_host/<input_dim>/host`` lookup — see the
+    capacity-sweep driver."""
     from saeforge import FeatureBasis, SubspaceProjector, ForgePipeline
     from saeforge.eval.targets import GroundTruthTarget
     from smsae.sae.evaluation import build_gt_matrix
@@ -601,7 +617,10 @@ def forge(compressed_path: str, sae, feed, run_dir: str,
         "scale_boost_resolved": float(projector.scale_boost),
     }
 
-    host, host_info = _build_synthetic_host(input_dim=sae.input_dim)
+    host, host_info = _build_synthetic_host(
+        input_dim=sae.input_dim,
+        host_dir_override=host_dir,
+    )
     input_ids = _encode_feed_as_input_ids(feed)
     Y = build_gt_matrix(feed)
     target = GroundTruthTarget(labels=Y)
@@ -717,6 +736,11 @@ def main():
                     help="SubspaceProjector scale_boost. 'auto' (default) "
                          "uses sae-forge's heuristic for over-complete bases; "
                          "any positive float overrides for hand tuning.")
+    ap.add_argument("--host-dir", default=None,
+                    help="Override the canonical "
+                         "runs/cascade_host/<input_dim>/ lookup. Used by the "
+                         "capacity-sweep driver to feed hosts at varying "
+                         "n_embd through the same forge measurement.")
     args = ap.parse_args()
 
     run_dir = os.path.join(args.out, args.run_id)
@@ -832,7 +856,8 @@ def main():
     print(f"  [7] sae-forge ForgePipeline.run_synthetic with "
           f"GroundTruthTarget (scale_boost={args.scale_boost!r})")
     forge_summary = forge(compressed_path, sae, feed, run_dir,
-                          scale_boost=args.scale_boost)
+                          scale_boost=args.scale_boost,
+                          host_dir=args.host_dir)
     proj = forge_summary.get("projector") or {}
     if proj.get("scale_boost_resolved") is not None:
         print(f"      projector: scale_boost {proj['scale_boost_arg']!r} "
