@@ -1,0 +1,953 @@
+{
+  "n_trajectories": 5000,
+  "n_samples": 7932,
+  "n_features": 110,
+  "n_features_measurable": 74,
+  "state_t_auc_summary": {
+    "mean": 0.9229,
+    "median": 0.938,
+    "pct_ge_0.9": 0.6486,
+    "pct_ge_0.95": 0.4595,
+    "pct_lt_0.7": 0.0
+  },
+  "spotlight": [
+    {
+      "feature": "color:b",
+      "state_t_auc": 0.9005282089763481,
+      "probe_auc_lm": 0.8104829987742774,
+      "lm_drop": 0.09004521020207068,
+      "marginal_p": 0.27269288897514343
+    },
+    {
+      "feature": "color:g",
+      "state_t_auc": 0.9083865078614204,
+      "probe_auc_lm": 0.796290748157726,
+      "lm_drop": 0.11209575970369434,
+      "marginal_p": 0.2800050377845764
+    },
+    {
+      "feature": "color:r",
+      "state_t_auc": 0.9043983357742441,
+      "probe_auc_lm": 0.7403069459857162,
+      "lm_drop": 0.16409138978852789,
+      "marginal_p": 0.28303074836730957
+    },
+    {
+      "feature": "flavor:d",
+      "state_t_auc": 0.8649890103100063,
+      "probe_auc_lm": 0.8235470658851776,
+      "lm_drop": 0.041441944424828736,
+      "marginal_p": 0.2000756412744522
+    },
+    {
+      "feature": "flavor:mu",
+      "state_t_auc": 0.8319507470153547,
+      "probe_auc_lm": 0.7747669915964904,
+      "lm_drop": 0.057183755418864224,
+      "marginal_p": 0.08787190914154053
+    },
+    {
+      "feature": "flavor:u",
+      "state_t_auc": 0.8788859813167939,
+      "probe_auc_lm": 0.8389980536458262,
+      "lm_drop": 0.039887927670967604,
+      "marginal_p": 0.19578920304775238
+    },
+    {
+      "feature": "particle:mu+",
+      "state_t_auc": 0.8315441638592971,
+      "probe_auc_lm": 0.7558993797112085,
+      "lm_drop": 0.07564478414808862,
+      "marginal_p": 0.047276854515075684
+    },
+    {
+      "feature": "particle:u_b",
+      "state_t_auc": 0.8277099579627147,
+      "probe_auc_lm": 0.7987407853052272,
+      "lm_drop": 0.028969172657487552,
+      "marginal_p": 0.04891578480601311
+    }
+  ],
+  "all_rows": [
+    {
+      "feature": "charge_sign:+",
+      "marginal_p": 0.7868129014968872,
+      "marginal_entropy_bits": 0.7475307584120432,
+      "state_t_auc": 0.9973884043044994,
+      "probe_auc_lm": 0.9971061834793404,
+      "lm_drop": 0.00028222082515894087
+    },
+    {
+      "feature": "charge_sign:-",
+      "marginal_p": 0.8330811858177185,
+      "marginal_entropy_bits": 0.6506075599749133,
+      "state_t_auc": 0.9950409716850153,
+      "probe_auc_lm": 0.9473122295176507,
+      "lm_drop": 0.04772874216736456
+    },
+    {
+      "feature": "charge_sign:0",
+      "marginal_p": 0.45675742626190186,
+      "marginal_entropy_bits": 0.9945978046048538,
+      "state_t_auc": 0.9503216313729508,
+      "probe_auc_lm": 0.9487186328478802,
+      "lm_drop": 0.0016029985250706202
+    },
+    {
+      "feature": "color:b",
+      "marginal_p": 0.27269288897514343,
+      "marginal_entropy_bits": 0.8453022780241228,
+      "state_t_auc": 0.9005282089763481,
+      "probe_auc_lm": 0.8104829987742774,
+      "lm_drop": 0.09004521020207068
+    },
+    {
+      "feature": "color:g",
+      "marginal_p": 0.2800050377845764,
+      "marginal_entropy_bits": 0.8554576748038513,
+      "state_t_auc": 0.9083865078614204,
+      "probe_auc_lm": 0.796290748157726,
+      "lm_drop": 0.11209575970369434
+    },
+    {
+      "feature": "color:r",
+      "marginal_p": 0.28303074836730957,
+      "marginal_entropy_bits": 0.859547623060918,
+      "state_t_auc": 0.9043983357742441,
+      "probe_auc_lm": 0.7403069459857162,
+      "lm_drop": 0.16409138978852789
+    },
+    {
+      "feature": "flavor:H",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:W+",
+      "marginal_p": 0.21482601761817932,
+      "marginal_entropy_bits": 0.7506067892085482,
+      "state_t_auc": 1.0,
+      "probe_auc_lm": 1.0,
+      "lm_drop": 0.0
+    },
+    {
+      "feature": "flavor:W-",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:Z",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:b",
+      "marginal_p": 0.5542107820510864,
+      "marginal_entropy_bits": 0.9915036980597498,
+      "state_t_auc": 0.9966565651441021,
+      "probe_auc_lm": 0.988445535024606,
+      "lm_drop": 0.008211030119496088
+    },
+    {
+      "feature": "flavor:c",
+      "marginal_p": 0.11270801723003387,
+      "marginal_entropy_bits": 0.5080305055518194,
+      "state_t_auc": 0.8810007137607417,
+      "probe_auc_lm": 0.8817356753165989,
+      "lm_drop": -0.000734961555857172
+    },
+    {
+      "feature": "flavor:d",
+      "marginal_p": 0.2000756412744522,
+      "marginal_entropy_bits": 0.7220793516433072,
+      "state_t_auc": 0.8649890103100063,
+      "probe_auc_lm": 0.8235470658851776,
+      "lm_drop": 0.041441944424828736
+    },
+    {
+      "feature": "flavor:e",
+      "marginal_p": 0.2192385345697403,
+      "marginal_entropy_bits": 0.7587746500456836,
+      "state_t_auc": 0.9286635611150292,
+      "probe_auc_lm": 0.9106014583307557,
+      "lm_drop": 0.01806210278427356
+    },
+    {
+      "feature": "flavor:g_bgbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:g_brbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:g_diag3",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:g_diag8",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:g_gbbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:g_grbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:g_rbbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:g_rgbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:mu",
+      "marginal_p": 0.08787190914154053,
+      "marginal_entropy_bits": 0.42932635258733254,
+      "state_t_auc": 0.8319507470153547,
+      "probe_auc_lm": 0.7747669915964904,
+      "lm_drop": 0.057183755418864224
+    },
+    {
+      "feature": "flavor:nu_e",
+      "marginal_p": 0.2218860238790512,
+      "marginal_entropy_bits": 0.7635964048791404,
+      "state_t_auc": 0.8997352370901237,
+      "probe_auc_lm": 0.8984461924864192,
+      "lm_drop": 0.0012890446037044923
+    },
+    {
+      "feature": "flavor:nu_mu",
+      "marginal_p": 0.21772566437721252,
+      "marginal_entropy_bits": 0.7559928350279619,
+      "state_t_auc": 0.9081570445695043,
+      "probe_auc_lm": 0.8972002538060541,
+      "lm_drop": 0.010956790763450241
+    },
+    {
+      "feature": "flavor:nu_tau",
+      "marginal_p": 0.23285426199436188,
+      "marginal_entropy_bits": 0.7829538359735289,
+      "state_t_auc": 0.9553911411975438,
+      "probe_auc_lm": 0.9326312470096995,
+      "lm_drop": 0.0227598941878443
+    },
+    {
+      "feature": "flavor:photon",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:s",
+      "marginal_p": 0.11043872684240341,
+      "marginal_entropy_bits": 0.501237874141773,
+      "state_t_auc": 0.869306231826011,
+      "probe_auc_lm": 0.8736194952682521,
+      "lm_drop": -0.004313263442241144
+    },
+    {
+      "feature": "flavor:t",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "flavor:tau",
+      "marginal_p": 0.06845688074827194,
+      "marginal_entropy_bits": 0.3601384658392717,
+      "state_t_auc": 0.8554131349776268,
+      "probe_auc_lm": 0.8434600452166886,
+      "lm_drop": 0.01195308976093823
+    },
+    {
+      "feature": "flavor:u",
+      "marginal_p": 0.19578920304775238,
+      "marginal_entropy_bits": 0.7134261373926325,
+      "state_t_auc": 0.8788859813167939,
+      "probe_auc_lm": 0.8389980536458262,
+      "lm_drop": 0.039887927670967604
+    },
+    {
+      "feature": "generation:1",
+      "marginal_p": 0.4343166947364807,
+      "marginal_entropy_bits": 0.9875155178051404,
+      "state_t_auc": 0.8787420137322132,
+      "probe_auc_lm": 0.8457931804530079,
+      "lm_drop": 0.03294883327920528
+    },
+    {
+      "feature": "generation:2",
+      "marginal_p": 0.3498487174510956,
+      "marginal_entropy_bits": 0.9339328746590505,
+      "state_t_auc": 0.8605080041066201,
+      "probe_auc_lm": 0.8543511780924393,
+      "lm_drop": 0.006156826014180772
+    },
+    {
+      "feature": "generation:3",
+      "marginal_p": 0.7420575022697449,
+      "marginal_entropy_bits": 0.8236256746242568,
+      "state_t_auc": 0.9787309881548318,
+      "probe_auc_lm": 0.9664735816969835,
+      "lm_drop": 0.012257406457848341
+    },
+    {
+      "feature": "is_antiparticle",
+      "marginal_p": 1.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "is_boson",
+      "marginal_p": 0.21482601761817932,
+      "marginal_entropy_bits": 0.7506067892085482,
+      "state_t_auc": 1.0,
+      "probe_auc_lm": 1.0,
+      "lm_drop": 0.0
+    },
+    {
+      "feature": "is_charged",
+      "marginal_p": 0.9849974513053894,
+      "marginal_entropy_bits": 0.11237609647926357,
+      "state_t_auc": 0.9675767918088738,
+      "probe_auc_lm": 0.9675767918088738,
+      "lm_drop": 0.0
+    },
+    {
+      "feature": "is_colored",
+      "marginal_p": 0.7284417748451233,
+      "marginal_entropy_bits": 0.8436917157137696,
+      "state_t_auc": 0.9602964387357565,
+      "probe_auc_lm": 0.9465109573241061,
+      "lm_drop": 0.01378548141165048
+    },
+    {
+      "feature": "is_fermion",
+      "marginal_p": 1.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "is_scalar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "kind:antilepton",
+      "marginal_p": 0.20852243900299072,
+      "marginal_entropy_bits": 0.7386489271824289,
+      "state_t_auc": 0.8932302367988493,
+      "probe_auc_lm": 0.8765447358057668,
+      "lm_drop": 0.016685500993082525
+    },
+    {
+      "feature": "kind:antineutrino",
+      "marginal_p": 0.3357287049293518,
+      "marginal_entropy_bits": 0.9206726025563339,
+      "state_t_auc": 0.9950115538160842,
+      "probe_auc_lm": 0.9909362509588598,
+      "lm_drop": 0.00407530285722435
+    },
+    {
+      "feature": "kind:antiquark",
+      "marginal_p": 0.4087241590023041,
+      "marginal_entropy_bits": 0.975825680510691,
+      "state_t_auc": 0.8815250571397892,
+      "probe_auc_lm": 0.8743830400194008,
+      "lm_drop": 0.007142017120388422
+    },
+    {
+      "feature": "kind:gauge",
+      "marginal_p": 0.21482601761817932,
+      "marginal_entropy_bits": 0.7506067892085482,
+      "state_t_auc": 1.0,
+      "probe_auc_lm": 1.0,
+      "lm_drop": 0.0
+    },
+    {
+      "feature": "kind:gluon",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "kind:higgs",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "kind:lepton",
+      "marginal_p": 0.1819213330745697,
+      "marginal_entropy_bits": 0.6842622145419328,
+      "state_t_auc": 0.988756907945071,
+      "probe_auc_lm": 0.9853703987066026,
+      "lm_drop": 0.0033865092384683937
+    },
+    {
+      "feature": "kind:neutrino",
+      "marginal_p": 0.35842159390449524,
+      "marginal_entropy_bits": 0.9413651887226153,
+      "state_t_auc": 0.9379235503799909,
+      "probe_auc_lm": 0.930228915856897,
+      "lm_drop": 0.007694634523093824
+    },
+    {
+      "feature": "kind:quark",
+      "marginal_p": 0.7284417748451233,
+      "marginal_entropy_bits": 0.8436917157137696,
+      "state_t_auc": 0.9602964387357565,
+      "probe_auc_lm": 0.9464431101160186,
+      "lm_drop": 0.013853328619737981
+    },
+    {
+      "feature": "particle:H",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:W+",
+      "marginal_p": 0.21482601761817932,
+      "marginal_entropy_bits": 0.7506067892085482,
+      "state_t_auc": 1.0,
+      "probe_auc_lm": 1.0,
+      "lm_drop": 0.0
+    },
+    {
+      "feature": "particle:W-",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:Z",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:b_b",
+      "marginal_p": 0.18330812454223633,
+      "marginal_entropy_bits": 0.6872607578105787,
+      "state_t_auc": 0.9941138577415336,
+      "probe_auc_lm": 0.9299662334352702,
+      "lm_drop": 0.06414762430626342
+    },
+    {
+      "feature": "particle:b_g",
+      "marginal_p": 0.18305598199367523,
+      "marginal_entropy_bits": 0.6867169527712683,
+      "state_t_auc": 0.9936702438932307,
+      "probe_auc_lm": 0.9511989372144826,
+      "lm_drop": 0.0424713066787481
+    },
+    {
+      "feature": "particle:b_r",
+      "marginal_p": 0.18784669041633606,
+      "marginal_entropy_bits": 0.6969451069523176,
+      "state_t_auc": 0.992685038267417,
+      "probe_auc_lm": 0.9047249525780307,
+      "lm_drop": 0.0879600856893864
+    },
+    {
+      "feature": "particle:c_b",
+      "marginal_p": 0.035552192479372025,
+      "marginal_entropy_bits": 0.22151354445088647,
+      "state_t_auc": 0.861191849288735,
+      "probe_auc_lm": 0.8541535306933231,
+      "lm_drop": 0.00703831859541193
+    },
+    {
+      "feature": "particle:c_g",
+      "marginal_p": 0.04135148599743843,
+      "marginal_entropy_bits": 0.24845475464248562,
+      "state_t_auc": 0.830792001287807,
+      "probe_auc_lm": 0.8468269867105475,
+      "lm_drop": -0.01603498542274051
+    },
+    {
+      "feature": "particle:c_r",
+      "marginal_p": 0.03580433502793312,
+      "marginal_entropy_bits": 0.22271283533210556,
+      "state_t_auc": 0.8361476355247982,
+      "probe_auc_lm": 0.8507830321671153,
+      "lm_drop": -0.014635396642317056
+    },
+    {
+      "feature": "particle:d_b",
+      "marginal_p": 0.02105395868420601,
+      "marginal_entropy_bits": 0.14731801791559807,
+      "state_t_auc": 0.9454849785407725,
+      "probe_auc_lm": 0.9447210300429184,
+      "lm_drop": 0.0007639484978541056
+    },
+    {
+      "feature": "particle:d_g",
+      "marginal_p": 0.018154311925172806,
+      "marginal_entropy_bits": 0.13094820358152529,
+      "state_t_auc": 0.9536973460309879,
+      "probe_auc_lm": 0.9523290642943149,
+      "lm_drop": 0.001368281736673027
+    },
+    {
+      "feature": "particle:d_r",
+      "marginal_p": 0.02092788740992546,
+      "marginal_entropy_bits": 0.1466191434594634,
+      "state_t_auc": 0.9581673819742489,
+      "probe_auc_lm": 0.9391416309012875,
+      "lm_drop": 0.01902575107296134
+    },
+    {
+      "feature": "particle:e+",
+      "marginal_p": 0.11938981711864471,
+      "marginal_entropy_bits": 0.527604366387969,
+      "state_t_auc": 0.9291432036877755,
+      "probe_auc_lm": 0.9119508318997958,
+      "lm_drop": 0.01719237178797972
+    },
+    {
+      "feature": "particle:e-",
+      "marginal_p": 0.10577408224344254,
+      "marginal_entropy_bits": 0.4870362241973213,
+      "state_t_auc": 0.9777671485260772,
+      "probe_auc_lm": 0.9750361767514023,
+      "lm_drop": 0.0027309717746748507
+    },
+    {
+      "feature": "particle:g_bgbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:g_brbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:g_diag3",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:g_diag8",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:g_gbbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:g_grbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:g_rbbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:g_rgbar",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:mu+",
+      "marginal_p": 0.047276854515075684,
+      "marginal_entropy_bits": 0.2747146269071381,
+      "state_t_auc": 0.8315441638592971,
+      "probe_auc_lm": 0.7558993797112085,
+      "lm_drop": 0.07564478414808862
+    },
+    {
+      "feature": "particle:mu-",
+      "marginal_p": 0.0431164912879467,
+      "marginal_entropy_bits": 0.25640310583622516,
+      "state_t_auc": 0.9381552971675385,
+      "probe_auc_lm": 0.9309579543855611,
+      "lm_drop": 0.007197342781977478
+    },
+    {
+      "feature": "particle:nu_e",
+      "marginal_p": 0.12203731387853622,
+      "marginal_entropy_bits": 0.5351888456630534,
+      "state_t_auc": 0.9204174228675136,
+      "probe_auc_lm": 0.8874509156904802,
+      "lm_drop": 0.03296650717703342
+    },
+    {
+      "feature": "particle:nu_mu",
+      "marginal_p": 0.15418557822704315,
+      "marginal_entropy_bits": 0.6202163477143663,
+      "state_t_auc": 0.9348803621149179,
+      "probe_auc_lm": 0.8983974736420353,
+      "lm_drop": 0.03648288847288261
+    },
+    {
+      "feature": "particle:nu_tau",
+      "marginal_p": 0.16439737379550934,
+      "marginal_entropy_bits": 0.6447264430076752,
+      "state_t_auc": 0.9519357746377455,
+      "probe_auc_lm": 0.9426095443095593,
+      "lm_drop": 0.009326230328186136
+    },
+    {
+      "feature": "particle:photon",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:s_b",
+      "marginal_p": 0.0026475037448108196,
+      "marginal_entropy_bits": 0.02648016074595585,
+      "state_t_auc": 0.8043035664139287,
+      "probe_auc_lm": 0.8004071889918563,
+      "lm_drop": 0.0038963774220724945
+    },
+    {
+      "feature": "particle:s_g",
+      "marginal_p": 0.005673222243785858,
+      "marginal_entropy_bits": 0.050492873988536816,
+      "state_t_auc": 0.9588364931771526,
+      "probe_auc_lm": 0.9128879362395846,
+      "lm_drop": 0.04594855693756794
+    },
+    {
+      "feature": "particle:s_r",
+      "marginal_p": 0.005042864475399256,
+      "marginal_entropy_bits": 0.0457417665886907,
+      "state_t_auc": 0.953318552927928,
+      "probe_auc_lm": 0.9441687781531531,
+      "lm_drop": 0.009149774774774855
+    },
+    {
+      "feature": "particle:t_b",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:t_g",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:t_r",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:tau+",
+      "marginal_p": 0.04185577481985092,
+      "marginal_entropy_bits": 0.25073709017283785,
+      "state_t_auc": 0.8418223684210525,
+      "probe_auc_lm": 0.8450548245614035,
+      "lm_drop": -0.0032324561403509477
+    },
+    {
+      "feature": "particle:tau-",
+      "marginal_p": 0.033030763268470764,
+      "marginal_entropy_bits": 0.20937036521193825,
+      "state_t_auc": 0.9381886796604668,
+      "probe_auc_lm": 0.9401993629627186,
+      "lm_drop": -0.0020106833022517367
+    },
+    {
+      "feature": "particle:u_b",
+      "marginal_p": 0.04891578480601311,
+      "marginal_entropy_bits": 0.2817733141769714,
+      "state_t_auc": 0.8277099579627147,
+      "probe_auc_lm": 0.7987407853052272,
+      "lm_drop": 0.028969172657487552
+    },
+    {
+      "feature": "particle:u_g",
+      "marginal_p": 0.04929399862885475,
+      "marginal_entropy_bits": 0.2833903110643666,
+      "state_t_auc": 0.8518002349199875,
+      "probe_auc_lm": 0.7749073727862946,
+      "lm_drop": 0.07689286213369284
+    },
+    {
+      "feature": "particle:u_r",
+      "marginal_p": 0.0523197166621685,
+      "marginal_entropy_bits": 0.29617039691154434,
+      "state_t_auc": 0.8491725055432373,
+      "probe_auc_lm": 0.7862368070953437,
+      "lm_drop": 0.0629356984478936
+    },
+    {
+      "feature": "particle:~b_b",
+      "marginal_p": 0.022945033386349678,
+      "marginal_entropy_bits": 0.15767115460705777,
+      "state_t_auc": 0.9620410557184751,
+      "probe_auc_lm": 0.9618572825024437,
+      "lm_drop": 0.00018377321603135766
+    },
+    {
+      "feature": "particle:~b_g",
+      "marginal_p": 0.02534039318561554,
+      "marginal_entropy_bits": 0.17045663250247167,
+      "state_t_auc": 0.9668821839080459,
+      "probe_auc_lm": 0.9668821839080459,
+      "lm_drop": 0.0
+    },
+    {
+      "feature": "particle:~b_r",
+      "marginal_p": 0.0278618261218071,
+      "marginal_entropy_bits": 0.18355298754353006,
+      "state_t_auc": 0.9659516513449098,
+      "probe_auc_lm": 0.9661349886068988,
+      "lm_drop": -0.0001833372619890472
+    },
+    {
+      "feature": "particle:~c_b",
+      "marginal_p": 0.0036560767330229282,
+      "marginal_entropy_bits": 0.03486267490283103,
+      "state_t_auc": 0.9074464595341862,
+      "probe_auc_lm": 0.9499976568723932,
+      "lm_drop": -0.042551197338207
+    },
+    {
+      "feature": "particle:~c_g",
+      "marginal_p": 0.006681795231997967,
+      "marginal_entropy_bits": 0.05788715092063984,
+      "state_t_auc": 0.9317364636209814,
+      "probe_auc_lm": 0.9320008460236887,
+      "lm_drop": -0.0002643824027073194
+    },
+    {
+      "feature": "particle:~c_r",
+      "marginal_p": 0.004664649721235037,
+      "marginal_entropy_bits": 0.042837066693382435,
+      "state_t_auc": 0.9563490540696113,
+      "probe_auc_lm": 0.9563106796116505,
+      "lm_drop": 3.83744579608436e-05
+    },
+    {
+      "feature": "particle:~d_b",
+      "marginal_p": 0.05194150283932686,
+      "marginal_entropy_bits": 0.2945877654079931,
+      "state_t_auc": 0.8337104638526653,
+      "probe_auc_lm": 0.769087093914436,
+      "lm_drop": 0.06462336993822937
+    },
+    {
+      "feature": "particle:~d_g",
+      "marginal_p": 0.05017650127410889,
+      "marginal_entropy_bits": 0.2871462491677376,
+      "state_t_auc": 0.8181662757982451,
+      "probe_auc_lm": 0.7512292842833728,
+      "lm_drop": 0.06693699151487231
+    },
+    {
+      "feature": "particle:~d_r",
+      "marginal_p": 0.05244578793644905,
+      "marginal_entropy_bits": 0.2966970144047537,
+      "state_t_auc": 0.8465578713968958,
+      "probe_auc_lm": 0.7889082039911308,
+      "lm_drop": 0.05764966740576494
+    },
+    {
+      "feature": "particle:~nu_e",
+      "marginal_p": 0.10842158645391464,
+      "marginal_entropy_bits": 0.49513655193351447,
+      "state_t_auc": 0.9728462982852215,
+      "probe_auc_lm": 0.9686936048338193,
+      "lm_drop": 0.004152693451402234
+    },
+    {
+      "feature": "particle:~nu_mu",
+      "marginal_p": 0.15317700803279877,
+      "marginal_entropy_bits": 0.6177339922247924,
+      "state_t_auc": 0.9800271933104456,
+      "probe_auc_lm": 0.9712906624970258,
+      "lm_drop": 0.008736530813419852
+    },
+    {
+      "feature": "particle:~nu_tau",
+      "marginal_p": 0.1482602059841156,
+      "marginal_entropy_bits": 0.6054692897658323,
+      "state_t_auc": 0.9913581661730938,
+      "probe_auc_lm": 0.9672362203734011,
+      "lm_drop": 0.024121945799692734
+    },
+    {
+      "feature": "particle:~s_b",
+      "marginal_p": 0.033661119639873505,
+      "marginal_entropy_bits": 0.2124322822334629,
+      "state_t_auc": 0.860921195652174,
+      "probe_auc_lm": 0.8675380434782608,
+      "lm_drop": -0.006616847826086847
+    },
+    {
+      "feature": "particle:~s_g",
+      "marginal_p": 0.039838626980781555,
+      "marginal_entropy_bits": 0.24155181002166262,
+      "state_t_auc": 0.8655004030864908,
+      "probe_auc_lm": 0.8544650466428654,
+      "lm_drop": 0.01103535644362541
+    },
+    {
+      "feature": "particle:~s_r",
+      "marginal_p": 0.03580433502793312,
+      "marginal_entropy_bits": 0.22271283533210556,
+      "state_t_auc": 0.8481378956811484,
+      "probe_auc_lm": 0.8553428168653082,
+      "lm_drop": -0.007204921184159829
+    },
+    {
+      "feature": "particle:~t_b",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:~t_g",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:~t_r",
+      "marginal_p": 0.0,
+      "marginal_entropy_bits": 0.0,
+      "state_t_auc": null,
+      "probe_auc_lm": null,
+      "lm_drop": null
+    },
+    {
+      "feature": "particle:~u_b",
+      "marginal_p": 0.01853252574801445,
+      "marginal_entropy_bits": 0.13311987312213622,
+      "state_t_auc": 0.9664879747820673,
+      "probe_auc_lm": 0.9653885818804483,
+      "lm_drop": 0.0010993929016189785
+    },
+    {
+      "feature": "particle:~u_g",
+      "marginal_p": 0.017145738005638123,
+      "marginal_entropy_bits": 0.125099794833434,
+      "state_t_auc": 0.9542852375937184,
+      "probe_auc_lm": 0.95437908633041,
+      "lm_drop": -9.38487366916041e-05
+    },
+    {
+      "feature": "particle:~u_r",
+      "marginal_p": 0.020549671724438667,
+      "marginal_entropy_bits": 0.14451576846943892,
+      "state_t_auc": 0.9596039187875922,
+      "probe_auc_lm": 0.9436783722498008,
+      "lm_drop": 0.015925546537791435
+    }
+  ]
+}
