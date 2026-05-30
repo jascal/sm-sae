@@ -201,6 +201,26 @@ so the at-floor outcome is observable programmatically — not just as
 `before ≈ floor ≈ after` numerically. The bridge prints `cancellation
 efficiency: N/A` for these cases rather than the misleading `0.00%`.
 
+## cluster_experts — GT-labeled validation (polygram v0.12.0)
+
+Beyond the classical Compressor path, sm-sae validates polygram's
+`cluster_experts` expert-routing against the SM answer key: does
+decoder-cosine clustering recover known feature structure? Run via
+`scripts/cluster_experts_demo.py`; the durable verdict is
+`runs/cluster_experts/summary.json`.
+
+| cell | thr | experts | multi-member | clusters recovering a META label (µAUC ≥0.80) | GT cov ≥.95 |
+|---|---|---|---|---|---|
+| cascade__jumprelu | 0.3 | 65 | 25 | 2 (10 at ≥0.70) | 20 |
+| embedded__topk | 0.5 | 37 | 12 | **12 / 12** | 24 |
+
+On `embedded__topk` every multi-member cluster recovers a META label at
+µAUC ≥ 0.80 — the SAE found Higgs substructure (`is_scalar`/`flavor:H`)
+and `cluster_experts` grouped it from decoder cosine alone. First
+validated in PR #16 on polygram 0.10.0; **re-confirmed on the pinned
+v0.12.0** (the `cluster_experts` API is unchanged). This is the
+answer-key counterpart to bio-sae's label-free validation.
+
 ## Relationship to polygram / sae-forge
 
 This project is a sandbox for ideas that feed into

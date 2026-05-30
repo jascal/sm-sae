@@ -1,4 +1,4 @@
-"""Test polygram 0.10.0's cluster_experts on the sm-sae cascade SAE.
+"""GT-labeled answer-key validation of polygram's cluster_experts.
 
 The bio-sae 2026-05-19 report flagged cluster_experts as the genuinely
 useful polygram entry point on real (non-toy) decoder geometry. They
@@ -7,14 +7,23 @@ substrate without an explicit answer key.
 
 sm-sae has 110 ground-truth particle-physics features (charge, color,
 generation, family, flavour, …) per cascade sample — an actual
-answer key. This script runs cluster_experts on the cascade__jumprelu
-decoder and scores the recovered clusters against the GT labels.
+answer key. This script runs cluster_experts on a trained SAE decoder
+and scores the recovered clusters against the GT labels.
+
+History: the validation first landed in sm-sae PR #16 on polygram
+0.10.0, and was RE-VALIDATED on the pinned polygram v0.12.0 (the
+`cluster_experts` / `ExpertDictionary` API is unchanged; the result
+reproduces — see openspec/changes/revalidate-cluster-experts-v0-12-0/).
 
 Outputs:
 
   runs/cluster_experts/<run_id>/results.json
     Per-cluster best-GT-match (label, cluster-mean AUC, member count)
     plus aggregate purity / coverage numbers.
+  runs/cluster_experts/summary.json
+    Compact consolidated headline across all run_ids present + an
+    overall pass verdict + the polygram version (force-added; the
+    durable, inspectable record of the validation).
 
 Usage:
     python scripts/cluster_experts_demo.py
@@ -186,6 +195,65 @@ def _run_one_threshold(dictionary, sae, feed, decoder_vectors: np.ndarray,
     }
 
 
+def build_validation_summary(per_cell: dict[str, dict],
+                             polygram_version: str) -> dict:
+    """Compact consolidated validation summary across cells.
+
+    ``per_cell`` maps run_id -> that cell's results.json payload. For each
+    cell we pick the run that maximises the multi-member META signal (the
+    same criterion the demo uses for its ``best_threshold``) and pull the
+    headline numbers. Pass criterion mirrors PR #16 / bio-sae: at least one
+    multi-member cluster recovers a META label at cluster-mean AUC >= 0.80.
+    """
+    cells = []
+    for run_id in sorted(per_cell):
+        res = per_cell[run_id]
+        runs = res.get("runs", []) or []
+        best = max(
+            runs,
+            key=lambda r: (r.get("n_multi_meta_at_0.80", 0),
+                           r.get("n_multi_meta_at_0.70", 0)),
+        ) if runs else {}
+        cells.append({
+            "run_id":                run_id,
+            "encoding":              res.get("encoding"),
+            "best_threshold":        best.get("coherence_threshold"),
+            "n_experts":             best.get("n_experts"),
+            "n_multi_member":        best.get("n_multi_member"),
+            "n_multi_meta_ge_0.80":  best.get("n_multi_meta_at_0.80"),
+            "n_multi_meta_ge_0.70":  best.get("n_multi_meta_at_0.70"),
+            "n_gt_covered_ge_0.95":  best.get("n_gt_covered_at_0.95"),
+            "cluster_mean_auc_mean": best.get("cluster_mean_auc_mean"),
+            "validation_passes":     bool((best.get("n_multi_meta_at_0.80") or 0) >= 1),
+        })
+    return {
+        "experiment":        "cluster-experts-gt-validation",
+        "polygram_version":  polygram_version,
+        "criterion":         ("≥ 1 multi-member cluster recovers a META "
+                              "label at cluster-mean AUC ≥ 0.80"),
+        "validation_passes": bool(cells) and all(c["validation_passes"] for c in cells),
+        "n_cells":           len(cells),
+        "cells":             cells,
+    }
+
+
+def write_consolidated_summary(runs_root: str, polygram_version: str) -> dict:
+    """Scan ``runs_root`` for every <run_id>/results.json, build the compact
+    validation summary, and write it to ``runs_root/summary.json``."""
+    per_cell: dict[str, dict] = {}
+    if os.path.isdir(runs_root):
+        for name in sorted(os.listdir(runs_root)):
+            rp = os.path.join(runs_root, name, "results.json")
+            if os.path.isfile(rp):
+                with open(rp) as f:
+                    per_cell[name] = json.load(f)
+    summary = build_validation_summary(per_cell, polygram_version)
+    os.makedirs(runs_root, exist_ok=True)
+    with open(os.path.join(runs_root, "summary.json"), "w") as f:
+        json.dump(summary, f, indent=2)
+    return summary
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--run-id", default="cascade__jumprelu",
@@ -297,6 +365,14 @@ def main() -> None:
     with open(out_path, "w") as f:
         json.dump(payload, f, indent=2)
     print(f"\n  wrote {out_path}")
+
+    # Refresh the consolidated, force-added validation summary from every
+    # cell run so far (the durable, inspectable record).
+    import polygram
+    summary = write_consolidated_summary(args.out, polygram.__version__)
+    print(f"  wrote {os.path.join(args.out, 'summary.json')}  "
+          f"(polygram {summary['polygram_version']}; "
+          f"validation_passes={summary['validation_passes']})")
 
 
 if __name__ == "__main__":
