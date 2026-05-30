@@ -1,0 +1,63 @@
+{
+  "fixture": "sm-sae (feed_raw \u2014 conserved-charge substrate)",
+  "primitive": "saeforge.isf (best_auc_per_label + salience_headroom)",
+  "thesis": "docs/concise-via-routing.md (sae-forge) \u2014 salience HEURISTIC (rule of thumb)",
+  "substrate_dim": 9,
+  "n_samples": 61,
+  "n_features_kept": 34,
+  "overall_mean_host_auc": 0.8429989781553521,
+  "overall_mean_headroom": 0.15700102184464781,
+  "per_namespace": {
+    "is_boson": {
+      "n": 1,
+      "mean_host_auc": 1.0,
+      "mean_headroom": 0.0
+    },
+    "charge_sign": {
+      "n": 3,
+      "mean_host_auc": 0.966131907308378,
+      "mean_headroom": 0.03386809269162209
+    },
+    "is_antiparticle": {
+      "n": 1,
+      "mean_host_auc": 0.9611111111111111,
+      "mean_headroom": 0.03888888888888886
+    },
+    "kind": {
+      "n": 8,
+      "mean_host_auc": 0.9570932709538974,
+      "mean_headroom": 0.04290672904610257
+    },
+    "is_fermion": {
+      "n": 1,
+      "mean_host_auc": 0.9230769230769231,
+      "mean_headroom": 0.07692307692307687
+    },
+    "is_charged": {
+      "n": 1,
+      "mean_host_auc": 0.8983957219251337,
+      "mean_headroom": 0.10160427807486627
+    },
+    "is_colored": {
+      "n": 1,
+      "mean_host_auc": 0.8022222222222222,
+      "mean_headroom": 0.19777777777777783
+    },
+    "flavor": {
+      "n": 12,
+      "mean_host_auc": 0.7836800205444274,
+      "mean_headroom": 0.2163199794555727
+    },
+    "generation": {
+      "n": 3,
+      "mean_host_auc": 0.7138888888888889,
+      "mean_headroom": 0.2861111111111111
+    },
+    "color": {
+      "n": 3,
+      "mean_host_auc": 0.6587301587301587,
+      "mean_headroom": 0.3412698412698412
+    }
+  },
+  "reading": "sm-sae's factorial physical features mostly sit at LOW headroom on the conserved-charge substrate (the coords ARE the conserved quantities), so the salience heuristic predicts a specialist would add little for the charge/color/spin-derived features. This probes the low-headroom end of the rule of thumb \u2014 it is NOT proof a specialist is useless (econ-sae's conjunctive tier was low-headroom yet gained from a dedicated specialist), only that the substrate already encodes these concepts linearly. N=61 is tiny; read namespaces, not individual features."
+}
