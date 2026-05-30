@@ -39,24 +39,16 @@ Once a change lands and stabilises, move its directory under
 
 ## Status of the current set
 
-The cascade-host / gate-7.3 lineage is the active research arc. Each
-change below landed via a PR; all are stable and **pending archival**
-(move to `changes/archive/` together, once the maintainer picks the
-gate-7.3 close-out path — see `cascade-host-nonautoregressive`). The
-budget sweep exhausted the last host-side lever, so the host-side search
-is closed (negatively).
+The cascade-host / gate-7.3 lineage closed **negatively**: capacity
+(PR #25), depth (PR #26), SAE family (PR #27), aux supervision
+(PRs #19/#23) and training budget (PR #29) were each falsified as levers
+for gate 7.3. The seven landed lineage changes are now archived (see
+below). Two changes remain active:
 
 | change | status | priority |
 |---|---|---|
 | [cascade-host-nonautoregressive](changes/cascade-host-nonautoregressive/) | proposed — terminal pivot + maintainer decision point (build a non-AR host **or** re-frame gate 7.3 to absolute forge_score per PR #27). Not implemented. | P1 |
-| [cascade-host-training-budget-sweep](changes/cascade-host-training-budget-sweep/) | **impl landed + run** — refuted PR #28's "train longer": more gradient steps drove color:r 0.877→0.779 and forge Δ to ~0 (best +0.0239 at the *lowest* budget). Closed the host-side search. | P1 |
-| [cascade-rollout-entropy-measurement](changes/cascade-rollout-entropy-measurement/) | landed (PR #28) — archive pending | P1 |
-| [cascade-sae-family-binding](changes/cascade-sae-family-binding/) | landed (PR #27) — archive pending | P2 |
-| [cascade-host-depth-sweep](changes/cascade-host-depth-sweep/) | landed (PR #26) — archive pending | P2 |
-| [investigate-cascade-host-capacity-sweep](changes/investigate-cascade-host-capacity-sweep/) | landed (PR #25) — archive pending | P2 |
-| [richer-cascade-host-supervision-v2](changes/richer-cascade-host-supervision-v2/) | landed (PR #23) — archive pending | P2 |
-| [probe-full-gt-recoverability-cascade-host](changes/probe-full-gt-recoverability-cascade-host/) | landed (PR #22) — archive pending | P2 |
-| [aux-supervise-cascade-host](changes/aux-supervise-cascade-host/) | landed (PR #19); gate 7.3 missed at Δ +0.0072 — archive pending | P1 |
+| [cascade-host-training-budget-sweep](changes/cascade-host-training-budget-sweep/) | impl in flight (PR #29) — refuted PR #28's "train longer" (color:r 0.877→0.779, forge Δ→~0; best +0.0239 at the *lowest* budget). Archives with the lineage once PR #29 merges. | P1 |
 
 ## Archived
 
@@ -66,3 +58,16 @@ is closed (negatively).
 | [principled-feature-selection-at-encoding-cap](changes/archive/principled-feature-selection-at-encoding-cap/) | sm-sae PR #1 | gate 8.4 (≥4 clusters on cascade__jumprelu) was met later — sm-sae PR #5's W_enc fix took clusters to 12 |
 | [diagnose-compressor-over-consolidation](changes/archive/diagnose-compressor-over-consolidation/) | resolved-not-implemented by sm-sae PR #5 | root cause was sm-sae sending wrong-shape W_enc to polygram, not a polygram tuning issue; see the resolution note in proposal.md |
 | [sae-forge-world-model-adapter](changes/archive/sae-forge-world-model-adapter/) | sae-forge PR #55 | implementation landed upstream; sm-sae pins saeforge for the new seam. A separate `retire-cascade-host-shim` follow-up is needed before the shim can actually be deleted (the merged upstream spec was protocol-only; concrete non-transformer adapter support is deferred). |
+
+The **gate-7.3 lineage** (the host-side search, closed negatively — every
+lever was falsified in PR order):
+
+| change | landed via | note |
+|---|---|---|
+| [aux-supervise-cascade-host](changes/archive/aux-supervise-cascade-host/) | sm-sae PR #19 | v1 5-label aux head; gate 7.3 missed (Δ +0.0072). First host-side attempt. |
+| [probe-full-gt-recoverability-cascade-host](changes/archive/probe-full-gt-recoverability-cascade-host/) | sm-sae PR #22 | full 110-feature GT probe; surfaced the weak per-particle/per-color set (0.74–0.85) that drove v2. |
+| [richer-cascade-host-supervision-v2](changes/archive/richer-cascade-host-supervision-v2/) | sm-sae PR #23 | 110-label per-channel + focal-BCE aux head; gate 7.3 missed (Δ −0.0053). |
+| [investigate-cascade-host-capacity-sweep](changes/archive/investigate-cascade-host-capacity-sweep/) | sm-sae PR #25 | width saturates ~0.87 by n_embd≈96; depth monotonic L2→L6. |
+| [cascade-host-depth-sweep](changes/archive/cascade-host-depth-sweep/) | sm-sae PR #26 | depth peaks at L6; L8–12 regress; declared "host-side exhausted". |
+| [cascade-sae-family-binding](changes/archive/cascade-sae-family-binding/) | sm-sae PR #27 | SAE family binds; the Δ-vs-random gate framing penalises strong structural priors (topk random already 0.758). |
+| [cascade-rollout-entropy-measurement](changes/archive/cascade-rollout-entropy-measurement/) | sm-sae PR #28 | cascade vocab IS information-rich (0% features <0.7 AUC from state_t); LM drops 0.09–0.16 AUC; recommended the budget sweep. |

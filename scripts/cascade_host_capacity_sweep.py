@@ -6,7 +6,7 @@ then for each config measures both gate 7.3 (forge faithfulness on
 whether host capacity scales away the gate-7.3 gap that supervised aux
 training (v1/v2) failed to close.
 
-See ``openspec/changes/investigate-cascade-host-capacity-sweep/proposal.md``
+See ``openspec/changes/archive/investigate-cascade-host-capacity-sweep/proposal.md``
 for the full hypothesis + gates.
 
 Run:
