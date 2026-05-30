@@ -1,0 +1,33 @@
+{
+  "experiment": "cluster-experts-gt-validation",
+  "polygram_version": "0.12.0",
+  "criterion": "\u2265 1 multi-member cluster recovers a META label at cluster-mean AUC \u2265 0.80",
+  "validation_passes": true,
+  "n_cells": 2,
+  "cells": [
+    {
+      "run_id": "cascade__jumprelu",
+      "encoding": "rung5",
+      "best_threshold": 0.3,
+      "n_experts": 65,
+      "n_multi_member": 25,
+      "n_multi_meta_ge_0.80": 2,
+      "n_multi_meta_ge_0.70": 10,
+      "n_gt_covered_ge_0.95": 20,
+      "cluster_mean_auc_mean": 0.8999080034402701,
+      "validation_passes": true
+    },
+    {
+      "run_id": "embedded__topk",
+      "encoding": "rung5",
+      "best_threshold": 0.5,
+      "n_experts": 37,
+      "n_multi_member": 12,
+      "n_multi_meta_ge_0.80": 12,
+      "n_multi_meta_ge_0.70": 12,
+      "n_gt_covered_ge_0.95": 24,
+      "cluster_mean_auc_mean": 0.9697286534953762,
+      "validation_passes": true
+    }
+  ]
+}
