@@ -1,0 +1,222 @@
+{
+  "grid": "budget",
+  "configs_run": [
+    {
+      "n_embd": 61,
+      "n_layer": 6,
+      "n_trajectories": 2000,
+      "epochs": 5
+    },
+    {
+      "n_embd": 61,
+      "n_layer": 6,
+      "n_trajectories": 2000,
+      "epochs": 20
+    },
+    {
+      "n_embd": 61,
+      "n_layer": 6,
+      "n_trajectories": 2000,
+      "epochs": 40
+    },
+    {
+      "n_embd": 61,
+      "n_layer": 6,
+      "n_trajectories": 5000,
+      "epochs": 20
+    }
+  ],
+  "n_trajectories": 2000,
+  "epochs": 5,
+  "lr": 0.005,
+  "probe_n_trajectories": 5000,
+  "random_baseline": {
+    "status": "ok",
+    "forge_score": 0.7310195360720027,
+    "baseline_score": null,
+    "post_compress_score": null,
+    "host_kind": "random_init",
+    "wall_s": 13.5
+  },
+  "rows": [
+    {
+      "n_embd": 61,
+      "n_layer": 6,
+      "n_trajectories": 2000,
+      "epochs": 5,
+      "lr": 0.005,
+      "n_params": 278526,
+      "n_train_steps": 500,
+      "train_loss_final": 1.7288,
+      "train_wall_s": 49.9,
+      "forge_score": 0.7548897907158431,
+      "forge_delta_vs_random": 0.023870254643840405,
+      "forge_wall_s": 20.6,
+      "probe_mean_residual_auc": 0.9146,
+      "probe_median_residual_auc": 0.9288,
+      "probe_pct_residual_ge_0.9": 0.5946,
+      "probe_pct_residual_ge_0.92": 0.5405,
+      "probe_spotlight_median_auc": 0.8588,
+      "probe_spotlight_n_ge_0.92": 0,
+      "probe_n_features_measured": 74,
+      "probe_color_r_auc": 0.8768798202190905,
+      "probe_color_b_auc": 0.8063901358264369,
+      "probe_color_g_auc": 0.8588062975460875,
+      "probe_flavor_mu_auc": 0.8153387740529248,
+      "probe_wall_s": 47.4
+    },
+    {
+      "n_embd": 61,
+      "n_layer": 6,
+      "n_trajectories": 2000,
+      "epochs": 20,
+      "lr": 0.005,
+      "n_params": 278526,
+      "n_train_steps": 2000,
+      "train_loss_final": 2.1109,
+      "train_wall_s": 203.2,
+      "forge_score": 0.7288958267170712,
+      "forge_delta_vs_random": -0.0021237093549314467,
+      "forge_wall_s": 23.1,
+      "probe_mean_residual_auc": 0.9108,
+      "probe_median_residual_auc": 0.9258,
+      "probe_pct_residual_ge_0.9": 0.5946,
+      "probe_pct_residual_ge_0.92": 0.5135,
+      "probe_spotlight_median_auc": 0.8271,
+      "probe_spotlight_n_ge_0.92": 0,
+      "probe_n_features_measured": 74,
+      "probe_color_r_auc": 0.8136042802327969,
+      "probe_color_b_auc": 0.7515779953872954,
+      "probe_color_g_auc": 0.8135439990749208,
+      "probe_flavor_mu_auc": 0.8007555004088254,
+      "probe_wall_s": 46.8
+    },
+    {
+      "n_embd": 61,
+      "n_layer": 6,
+      "n_trajectories": 2000,
+      "epochs": 40,
+      "lr": 0.005,
+      "n_params": 278526,
+      "n_train_steps": 4000,
+      "train_loss_final": 1.4559,
+      "train_wall_s": 295.4,
+      "forge_score": 0.7304191301183863,
+      "forge_delta_vs_random": -0.0006004059536163231,
+      "forge_wall_s": 16.9,
+      "probe_mean_residual_auc": 0.9104,
+      "probe_median_residual_auc": 0.9188,
+      "probe_pct_residual_ge_0.9": 0.5946,
+      "probe_pct_residual_ge_0.92": 0.4865,
+      "probe_spotlight_median_auc": 0.8273,
+      "probe_spotlight_n_ge_0.92": 0,
+      "probe_n_features_measured": 74,
+      "probe_color_r_auc": 0.7790830756172141,
+      "probe_color_b_auc": 0.8141076481704511,
+      "probe_color_g_auc": 0.8056746945311706,
+      "probe_flavor_mu_auc": 0.8273071082714953,
+      "probe_wall_s": 42.9
+    },
+    {
+      "n_embd": 61,
+      "n_layer": 6,
+      "n_trajectories": 5000,
+      "epochs": 20,
+      "lr": 0.005,
+      "n_params": 278526,
+      "n_train_steps": 4960,
+      "train_loss_final": 0.9836,
+      "train_wall_s": 576.4,
+      "forge_score": 0.7431907413662425,
+      "forge_delta_vs_random": 0.012171205294239873,
+      "forge_wall_s": 28.7,
+      "probe_mean_residual_auc": 0.9084,
+      "probe_median_residual_auc": 0.9222,
+      "probe_pct_residual_ge_0.9": 0.5946,
+      "probe_pct_residual_ge_0.92": 0.5135,
+      "probe_spotlight_median_auc": 0.8235,
+      "probe_spotlight_n_ge_0.92": 0,
+      "probe_n_features_measured": 74,
+      "probe_color_r_auc": 0.7961666973954727,
+      "probe_color_b_auc": 0.8262055386280631,
+      "probe_color_g_auc": 0.7930599794660471,
+      "probe_flavor_mu_auc": 0.8085353033351772,
+      "probe_wall_s": 73.0
+    }
+  ],
+  "gate_summary": {
+    "C.1_mechanical_pass": true,
+    "C.1_total_wall_s": 1426.2,
+    "C.2_gate_7_3_by_capacity": {
+      "passed": false,
+      "n_configs_meeting": 0,
+      "n_forge_measurable_configs": 4,
+      "configs": [],
+      "best_delta": 0.023870254643840405,
+      "best_config": [
+        61,
+        6
+      ]
+    },
+    "C.3_per_particle_scaling": {
+      "passed": false,
+      "largest_config": [
+        61,
+        6
+      ],
+      "largest_spotlight_median_auc": 0.8588
+    },
+    "B.3_budget_trend": {
+      "gradient_step_axis": [
+        {
+          "n_trajectories": 2000,
+          "epochs": 5,
+          "n_train_steps": 500,
+          "train_loss_final": 1.7288,
+          "forge_delta_vs_random": 0.023870254643840405,
+          "color_r_auc": 0.8768798202190905,
+          "spotlight_median_auc": 0.8588
+        },
+        {
+          "n_trajectories": 2000,
+          "epochs": 20,
+          "n_train_steps": 2000,
+          "train_loss_final": 2.1109,
+          "forge_delta_vs_random": -0.0021237093549314467,
+          "color_r_auc": 0.8136042802327969,
+          "spotlight_median_auc": 0.8271
+        },
+        {
+          "n_trajectories": 2000,
+          "epochs": 40,
+          "n_train_steps": 4000,
+          "train_loss_final": 1.4559,
+          "forge_delta_vs_random": -0.0006004059536163231,
+          "color_r_auc": 0.7790830756172141,
+          "spotlight_median_auc": 0.8273
+        }
+      ],
+      "corpus_scaling_controls": [
+        {
+          "n_trajectories": 5000,
+          "epochs": 20,
+          "n_train_steps": 4960,
+          "train_loss_final": 0.9836,
+          "forge_delta_vs_random": 0.012171205294239873,
+          "color_r_auc": 0.7961666973954727,
+          "spotlight_median_auc": 0.8235
+        }
+      ],
+      "color_r_baseline_observed": 0.8768798202190905,
+      "color_r_best": 0.8768798202190905,
+      "color_r_lift": 0.0,
+      "color_r_l2_reference": 0.74,
+      "color_r_state_t_ceiling": 0.9,
+      "color_r_lift_threshold": 0.02,
+      "gradient_step_axis_monotonic": false,
+      "prediction_holds": false,
+      "gate_7_3_closed": false,
+      "best_forge_delta_vs_random": 0.023870254643840405
+    }
+  }
+}

@@ -39,11 +39,24 @@ Once a change lands and stabilises, move its directory under
 
 ## Status of the current set
 
+The cascade-host / gate-7.3 lineage is the active research arc. Each
+change below landed via a PR; all are stable and **pending archival**
+(move to `changes/archive/` together, once the maintainer picks the
+gate-7.3 close-out path — see `cascade-host-nonautoregressive`). The
+budget sweep exhausted the last host-side lever, so the host-side search
+is closed (negatively).
+
 | change | status | priority |
 |---|---|---|
-| [aux-supervise-cascade-host](changes/aux-supervise-cascade-host/) | proposed (closes [archived add-cascade-host-shim](changes/archive/add-cascade-host-shim/) gate 7.3 if its acceptance gate is met) | P1 |
-| [per-encoding-scoreboard-axes-a-b](changes/per-encoding-scoreboard-axes-a-b/) | proposed | P1 |
-| [auto-tune-subspace-projector-scale-boost](changes/auto-tune-subspace-projector-scale-boost/) | proposed | P2 |
+| [cascade-host-nonautoregressive](changes/cascade-host-nonautoregressive/) | proposed — terminal pivot + maintainer decision point (build a non-AR host **or** re-frame gate 7.3 to absolute forge_score per PR #27). Not implemented. | P1 |
+| [cascade-host-training-budget-sweep](changes/cascade-host-training-budget-sweep/) | **impl landed + run** — refuted PR #28's "train longer": more gradient steps drove color:r 0.877→0.779 and forge Δ to ~0 (best +0.0239 at the *lowest* budget). Closed the host-side search. | P1 |
+| [cascade-rollout-entropy-measurement](changes/cascade-rollout-entropy-measurement/) | landed (PR #28) — archive pending | P1 |
+| [cascade-sae-family-binding](changes/cascade-sae-family-binding/) | landed (PR #27) — archive pending | P2 |
+| [cascade-host-depth-sweep](changes/cascade-host-depth-sweep/) | landed (PR #26) — archive pending | P2 |
+| [investigate-cascade-host-capacity-sweep](changes/investigate-cascade-host-capacity-sweep/) | landed (PR #25) — archive pending | P2 |
+| [richer-cascade-host-supervision-v2](changes/richer-cascade-host-supervision-v2/) | landed (PR #23) — archive pending | P2 |
+| [probe-full-gt-recoverability-cascade-host](changes/probe-full-gt-recoverability-cascade-host/) | landed (PR #22) — archive pending | P2 |
+| [aux-supervise-cascade-host](changes/aux-supervise-cascade-host/) | landed (PR #19); gate 7.3 missed at Δ +0.0072 — archive pending | P1 |
 
 ## Archived
 
