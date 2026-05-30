@@ -2,9 +2,9 @@
 
 ## Why
 
-[`add-cascade-host-shim`](../archive/add-cascade-host-shim/) shipped a
+[`add-cascade-host-shim`](../add-cascade-host-shim/) shipped a
 cascade-trained tiny GPT-2 that
-[`forge_pipeline.py:_build_synthetic_host`](../../../scripts/forge_pipeline.py)
+[`forge_pipeline.py:_build_synthetic_host`](../../../../scripts/forge_pipeline.py)
 loads as the sae-forge host. The shim's training objective is
 **pure next-state token prediction** (cross-entropy on per-position
 particle logits). With the W_enc shape fixed (PR #5) and all 9 forge
@@ -22,11 +22,11 @@ trained-vs-random faithfulness deltas are:
 
 All directionally positive on average, but **none cross the
 ≥ 0.05 gate-7.3 threshold** that
-[`add-cascade-host-shim`](../archive/add-cascade-host-shim/tasks.md)
+[`add-cascade-host-shim`](../add-cascade-host-shim/tasks.md)
 originally proposed. The largest delta is +0.036 on `cascade__l1`.
 
 The diagnosis pointed at by both the
-[refreshed sae-forge scoreboard section](../../../docs/index.html)
+[refreshed sae-forge scoreboard section](../../../../docs/index.html)
 and by [`econ-sae`'s Phase 5+ findings](https://github.com/jascal/econ-sae)
 (transposed to this domain): an SAE substrate only encodes what its
 training objective rewards encoding. **Next-state token prediction
@@ -140,7 +140,7 @@ supervision move the trained-vs-random faithfulness delta on
 `cascade__jumprelu` to ≥ 0.05?**
 
 If yes — gate 7.3 from
-[`add-cascade-host-shim`](../archive/add-cascade-host-shim/tasks.md)
+[`add-cascade-host-shim`](../add-cascade-host-shim/tasks.md)
 is closed retroactively; the original change is fully delivered.
 
 If no — file follow-ups (`per-channel-cascade-host-supervision`,

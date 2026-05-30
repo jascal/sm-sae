@@ -14,7 +14,7 @@ Module is pure-Python (no torch import). The Standard Model dict from
 ``smsae.sm.embeddings.build_sm`` is cached at module scope so the
 per-label charge/baryon lookups don't pay rebuild cost per call.
 
-See ``openspec/changes/aux-supervise-cascade-host/specs/cascade-host-aux-labels/spec.md``
+See ``openspec/changes/archive/aux-supervise-cascade-host/specs/cascade-host-aux-labels/spec.md``
 for the load-bearing contract.
 """
 

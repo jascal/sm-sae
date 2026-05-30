@@ -150,7 +150,7 @@ def train(n_embd: int, n_trajectories: int = 2000, epochs: int = 5,
             f"pooled (5 labels) and v2 ships per_channel (110 labels). "
             f"Dual-head (pooled + per_channel simultaneously) is the "
             f"documented follow-up in "
-            f"openspec/changes/archive/2026-05-20-aux-supervise-cascade-host/proposal.md.")
+            f"openspec/changes/archive/aux-supervise-cascade-host/proposal.md.")
     aux_on = aux_supervision in ("pooled", "per_channel")
     use_gt_vocab = aux_supervision == "per_channel"
 

@@ -26,7 +26,7 @@ The host's current loss never sees those labels (nor anything
 correlated with them in particular). Whether they land in the
 residual stream is a side-effect of the LM loss, not a contracted
 property of it. The
-[refreshed PR-#10 sae-forge section](../../../docs/index.html)
+[refreshed PR-#10 sae-forge section](../../../../docs/index.html)
 spells out the diagnosis and points at this change as the response.
 
 ## Goals
