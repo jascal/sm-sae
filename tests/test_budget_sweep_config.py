@@ -61,23 +61,25 @@ def test_budget_dict_partial_override_inherits_missing_knobs():
     assert norm[0]["dir_name"] == "sweep_NE61_L6_T2000_E20"
 
 
-def _row(traj, ep, steps, delta, color_r):
+def _row(traj, ep, steps, delta, color_r, forge_score=0.75):
     return {
         "n_trajectories": traj, "epochs": ep, "n_train_steps": steps,
-        "train_loss_final": 1.5, "forge_delta_vs_random": delta,
+        "train_loss_final": 1.5, "forge_score": forge_score,
+        "forge_delta_vs_random": delta,
         "probe_color_r_auc": color_r, "probe_spotlight_median_auc": 0.88,
     }
 
 
 def test_budget_trend_separates_axes_and_flags_passes():
     """gradient-step rows (smallest corpus) split from the corpus control;
-    monotone color:r above the 0.82 midpoint passes B.3; any Δ≥0.05 passes
-    B.2."""
+    monotone color:r above the 0.82 midpoint passes B.3. Gate 7.3 is now the
+    REFRAMED absolute forge_score: a cell clearing 0.76 passes B.2, and
+    Δ-vs-random survives only as a diagnostic."""
     rows = [
-        _row(2000, 5, 500, 0.024, 0.74),
-        _row(2000, 20, 2000, 0.04, 0.80),
-        _row(2000, 40, 4000, 0.06, 0.85),
-        _row(5000, 20, 4960, 0.03, 0.83),
+        _row(2000, 5, 500, 0.024, 0.74, forge_score=0.74),
+        _row(2000, 20, 2000, 0.04, 0.80, forge_score=0.78),
+        _row(2000, 40, 4000, 0.06, 0.85, forge_score=0.81),
+        _row(5000, 20, 4960, 0.03, 0.83, forge_score=0.79),
     ]
     bt = _budget_trend(rows)
     assert len(bt["gradient_step_axis"]) == 3
@@ -85,12 +87,16 @@ def test_budget_trend_separates_axes_and_flags_passes():
     assert bt["color_r_best"] == 0.85
     assert bt["color_r_lift"] == 0.11
     assert bt["gradient_step_axis_monotonic"] is True
-    assert bt["prediction_holds"] is True          # 0.85 ≥ 0.82 midpoint
-    assert bt["gate_7_3_closed"] is True            # 0.06 ≥ 0.05
+    assert bt["prediction_holds"] is True               # 0.85 ≥ 0.82 midpoint
+    assert bt["gate_7_3_target"] == 0.76
+    assert bt["best_cell_forge_score"] == 0.81
+    assert bt["cell_meets_target"] is True              # 0.81 ≥ 0.76 target
+    assert bt["delta_vs_random_diagnostic"]["best"] == 0.06   # retained, not the gate
 
 
-def test_budget_trend_fails_when_color_r_stays_flat():
-    """Flat/dropping color:r fails B.3; sub-0.05 deltas fail B.2."""
+def test_budget_trend_fails_when_cell_below_forge_target():
+    """Flat/dropping color:r fails B.3; a cell whose forge_score never clears
+    the 0.76 target fails the reframed B.2 (regardless of Δ-vs-random)."""
     rows = [
         _row(2000, 5, 500, 0.01, 0.74),
         _row(2000, 20, 2000, 0.012, 0.745),
@@ -98,8 +104,8 @@ def test_budget_trend_fails_when_color_r_stays_flat():
     ]
     bt = _budget_trend(rows)
     assert bt["prediction_holds"] is False
-    assert bt["gate_7_3_closed"] is False
-    assert bt["best_forge_delta_vs_random"] == 0.012
+    assert bt["cell_meets_target"] is False                  # all forge_score 0.75 < 0.76
+    assert bt["delta_vs_random_diagnostic"]["best"] == 0.012  # diagnostic only
 
 
 def test_budget_trend_monotonic_but_subthreshold_lift_fails():

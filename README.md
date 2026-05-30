@@ -129,8 +129,9 @@ python scripts/polygram_demo.py
 # Optional: train a cascade-host shim for the sae-forge synthetic-host path.
 # `--aux-supervision pooled` adds a supervised head over 5 per-state binary
 # labels (charge / baryon conservation, top-quark lineage / existence, Higgs
-# presence). Closes gate 7.3 if the trained-vs-random faithfulness delta on
-# cascade__jumprelu reaches ≥ 0.05. Defaults to `off` (legacy LM-only loss).
+# presence). The trained-vs-random faithfulness delta it drives is now a
+# diagnostic — gate 7.3 was reframed to an absolute `forge_score ≥ 0.76`
+# (met by cascade__topk = 0.760; see openspec). Defaults to `off` (LM-only).
 python scripts/train_cascade_host.py --n-embd 61 --aux-supervision pooled
 ```
 

@@ -326,9 +326,9 @@ def main():
               "Default 'off' preserves byte-identical pre-change behaviour. "
               "'pooled' adds a single mean-pool -> Linear -> BCE head; "
               "'per_channel' and 'dual' raise NotImplementedError until the "
-              "follow-up changes ship. Closes gate 7.3 if successful: "
-              "trained-vs-random faithfulness delta on cascade__jumprelu "
-              ">= 0.05."),
+              "follow-up changes ship. (Gate 7.3 was reframed to absolute "
+              "forge_score >= 0.76 per PR #27; the trained-vs-random delta "
+              "this drives is now a diagnostic, not the gate.)"),
     )
     ap.add_argument(
         "--aux-lambda",

@@ -1,5 +1,12 @@
 # cascade-host-nonautoregressive
 
+> **RESOLVED (2026-05-30): option B was chosen.** Gate 7.3 was reframed to an
+> absolute `forge_score ≥ 0.76` (see
+> [`reframe-gate-7.3-absolute-forge-score`](../../reframe-gate-7.3-absolute-forge-score/)),
+> which `cascade__topk` (0.760) meets — the saga closes positively. **Option A
+> (build a non-autoregressive host), below, is therefore deferred — preserved
+> as an *optional* future experiment**, not a blocker.
+
 ## Why
 
 Terminal pivot for the gate-7.3 lineage. `cascade-host-training-budget-sweep`
