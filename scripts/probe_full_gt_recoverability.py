@@ -299,11 +299,14 @@ def main() -> int:
     aux = _probe_host(args.aux_host, "aux") if args.aux_host else None
 
     summary = _bucket_summary(baseline["residual"], baseline["projected"])
+    pct_projected = summary["pct_projected_ge_0.9"]
+    projected_str = (
+        f"{pct_projected:.0%}" if pct_projected is not None else "<no --from-projected>"
+    )
     print()
     print(f"[probe] bucket={summary['bucket']}; "
           f"residual ≥ 0.9: {summary['pct_residual_ge_0.9']:.0%}; "
-          f"projected ≥ 0.9: "
-          f"{f'{summary['pct_projected_ge_0.9']:.0%}' if summary['pct_projected_ge_0.9'] is not None else '<no --from-projected>'}")
+          f"projected ≥ 0.9: {projected_str}")
     print(f"[probe] {summary['interpretation']}")
 
     out_path = args.out
