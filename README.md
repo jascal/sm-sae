@@ -95,6 +95,37 @@ For the Phase C polygram demo, also install the polygram extra:
 pip install -e ".[dev,polygram]"
 ```
 
+### NVIDIA GPU / CUDA
+
+The default `pip install` pulls a PyTorch wheel that works on CPU and older
+GPUs. **Newer NVIDIA cards (Blackwell, e.g. RTX 50-series / sm_120) are not
+supported by the default wheel** and need a PyTorch built against CUDA 12.8.
+Install torch from the cu128 index *first*, then install the project:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install "torch>=2.7" --index-url https://download.pytorch.org/whl/cu128
+pip install -e ".[dev]"        # torch>=2.7 already satisfied, not re-fetched
+```
+
+Verify the GPU is picked up:
+
+```bash
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+Training auto-selects the GPU when one is available; override with the
+`--device` flag:
+
+```bash
+python scripts/train_all.py               # auto: cuda if available, else cpu
+python scripts/train_all.py --device cpu  # force cpu
+python scripts/train_all.py --device cuda # force cuda (errors if unavailable)
+```
+
+Older/CUDA-12.x GPUs work with the default wheel and need no special steps.
+
 ### Intel macOS (x86_64) caveat
 
 PyTorch's last x86_64 macOS wheels are torch 2.2.2 (CPython 3.10/3.11,
@@ -106,7 +137,8 @@ source .venv/bin/activate
 pip install -e ".[dev,intel,polygram]"
 ```
 
-Apple Silicon and Linux/CUDA are unaffected.
+Apple Silicon and Linux/CUDA are unaffected (but see the CUDA note above for
+Blackwell / RTX 50-series GPUs).
 
 ## Quickstart
 

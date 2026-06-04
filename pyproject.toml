@@ -23,6 +23,11 @@ classifiers = [
 ]
 dependencies = [
   "numpy>=1.24,<2",
+  # CPU + older CUDA GPUs work with the default wheel. Newer NVIDIA cards
+  # (Blackwell / RTX 50-series, sm_120) need a CUDA-12.8 build -- install it
+  # first from the cu128 index, then `pip install -e .`:
+  #   pip install "torch>=2.7" --index-url https://download.pytorch.org/whl/cu128
+  # See the "NVIDIA GPU / CUDA" section in README.md.
   "torch>=2.0",
   "safetensors>=0.4",
   "packaging>=20",

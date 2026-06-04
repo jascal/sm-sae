@@ -4,11 +4,14 @@ Saves each trained SAE to runs/{feed}__{variant}.pt under the repo root,
 plus a runs/summary.json.
 
 Usage:
-    python scripts/train_all.py
+    python scripts/train_all.py                 # auto: cuda if available, else cpu
+    python scripts/train_all.py --device cpu     # force cpu
+    python scripts/train_all.py --device cuda    # force cuda
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -28,6 +31,15 @@ from smsae.sae.train import TrainConfig, train
 
 RUNS_DIR = os.path.join(REPO_ROOT, "runs")
 os.makedirs(RUNS_DIR, exist_ok=True)
+
+
+def resolve_device(requested: str = "auto") -> str:
+    """Pick a torch device string. 'auto' -> cuda if available, else cpu."""
+    if requested == "auto":
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    if requested == "cuda" and not torch.cuda.is_available():
+        raise SystemExit("--device cuda requested but torch.cuda.is_available() is False")
+    return requested
 
 
 FEED_CONFIGS = {
@@ -67,6 +79,15 @@ def build_sae(variant: str, input_dim: int, feed_name: str):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Train 3 SAE variants x 3 feeds.")
+    parser.add_argument(
+        "--device", default="auto", choices=["auto", "cpu", "cuda"],
+        help="Compute device (default: auto = cuda if available, else cpu).",
+    )
+    args = parser.parse_args()
+    device = resolve_device(args.device)
+    print(f"Using device: {device}")
+
     torch.manual_seed(0)
     rows = []
     summary = {}
@@ -88,19 +109,24 @@ def main():
                 lr=1e-3, warmup_steps=50,
                 resample_every=max(100, fcfg["epochs"] // 5),
                 log_every=max(50, fcfg["epochs"] // 5),
+                device=device,
             )
             t0 = time.time()
             hist = train(sae, feed, tcfg, verbose=False)
             elapsed = time.time() - t0
 
             with torch.no_grad():
-                out = sae(feed.X)
+                X_dev = feed.X.to(device)
+                out = sae(X_dev)
                 final_recon = float(out.recon_loss)
                 final_l0 = float((out.z.abs() > 1e-9).float().sum(dim=-1).mean())
                 dead = float((sae.steps_dead >= tcfg.resample_threshold).float().mean())
-                var_total = float(feed.X.var())
-                var_resid = float((feed.X - out.x_hat).var())
+                var_total = float(X_dev.var())
+                var_resid = float((X_dev - out.x_hat).var())
                 ve = 1.0 - var_resid / max(var_total, 1e-12)
+
+            # Save checkpoints on CPU so they load anywhere regardless of train device.
+            sae = sae.to("cpu")
 
             run_id = f"{feed_name}__{variant}"
             ckpt_path = os.path.join(RUNS_DIR, f"{run_id}.pt")
